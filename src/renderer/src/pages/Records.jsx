@@ -1,22 +1,43 @@
 /* eslint-disable prettier/prettier */
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { sampleStudents } from "./sampleData";
+import studentAPI from "../api/studentApi";  // ✅ Default import (no curly braces)
 
 export default function Records() {
     const navigate = useNavigate();
+    
+    const [students, setStudents] = useState([]);  
+    const [loading, setLoading] = useState(true);  
     const [searchTerm, setSearchTerm] = useState("");
     const [cohortFilter, setCohortFilter] = useState("All");
 
-    // Get unique cohorts from sample data
+   
+    useEffect(() => {
+        const fetchStudents = async () => {
+            setLoading(true);
+            const result = await studentAPI.getStudents({ page: 1, limit: 500 });
+            
+            if (result.success) {
+                setStudents(result.data);
+            } else {
+                console.error('Failed to fetch students:', result.error);
+                alert('Failed to load students: ' + result.error);
+            }
+            setLoading(false);
+        };
+        
+        fetchStudents();
+    }, []); // Empty dependency array = run once on mount
+
+    // Get unique cohorts from students
     const cohorts = useMemo(() => {
-        const uniqueCohorts = [...new Set(sampleStudents.map(s => s.Source_Sheet))];
+        const uniqueCohorts = [...new Set(students.map(s => s.Source_Sheet))];
         return ["All", ...uniqueCohorts];
-    }, []);
+    }, [students]);  // ✅ Recompute when students change
 
     // Filter students based on search and cohort
     const filteredStudents = useMemo(() => {
-        return sampleStudents.filter(student => {
+        return students.filter(student => {
             // Apply cohort filter
             if (cohortFilter !== "All" && student.Source_Sheet !== cohortFilter) {
                 return false;
@@ -38,7 +59,7 @@ export default function Records() {
 
             return true;
         });
-    }, [searchTerm, cohortFilter]);
+    }, [students, searchTerm, cohortFilter]);  // ✅ Recompute when any of these change
 
     const handleDelete = async (studentId, studentName) => {
         const confirmDelete = window.confirm(
@@ -49,27 +70,29 @@ export default function Records() {
             return;
         }
 
-        try {
-            const response = await fetch(`/api/students/${studentId}`, {
-                method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            });
-
-            if (response.ok) {
-                alert(`Student "${studentName}" deleted successfully!`);
-                // In real app, this would trigger a refresh or remove from state
-                window.location.reload();
-            } else {
-                alert('Failed to delete student');
-            }
-        } catch (error) {
-            console.error('Delete error:', error);
-            alert(`Student "${studentName}" would be deleted in real app!`);
-            // For demo purposes, show success message
+        // ✅ Use studentAPI instead of fetch
+        const result = await studentAPI.deleteStudent(studentId);
+        
+        if (result.success) {
+            alert(`Student "${studentName}" deleted successfully!`);
+            // ✅ Remove from state instead of reload
+            setStudents(students.filter(s => s.id !== studentId));
+        } else {
+            alert('Failed to delete student: ' + result.error);
         }
     };
+
+    // ✅ Show loading state
+    if (loading) {
+        return (
+            <div className="records-page">
+                <h1 className="records-page-title">Student Records</h1>
+                <div style={{ textAlign: 'center', padding: '50px' }}>
+                    <p>Loading students...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="records-page">
@@ -110,7 +133,7 @@ export default function Records() {
 
                 {/* Count Display */}
                 <div className="records-count">
-                    Showing: {filteredStudents.length} / {sampleStudents.length} students
+                    Showing: {filteredStudents.length} / {students.length} students
                 </div>
             </div>
 

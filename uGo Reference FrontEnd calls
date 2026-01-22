@@ -1,0 +1,22 @@
+import studentAPI from '../api/studentApi';
+
+// Get students
+const students = await studentAPI.getStudents({ page: 1, limit: 50 });
+
+// Get single student
+const student = await studentAPI.getStudent(5);
+
+// Add student
+const newStudent = await studentAPI.addStudent({ Full_Name: "John" });
+
+// Update student
+await studentAPI.updateStudent(5, { Full_Name: "Updated Name" });
+
+// Delete student
+await studentAPI.deleteStudent(5);
+
+// Get stats
+const stats = await studentAPI.getStats();
+
+// Refresh
+await studentAPI.refresh();

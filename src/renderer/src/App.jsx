@@ -1,5 +1,3 @@
-/* eslint-disable prettier/prettier */
-
 import Home from './pages/Home'
 import AddStudent from './pages/AddStudent'
 import EditStudent from './pages/EditStudent'
