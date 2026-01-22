@@ -772,7 +772,9 @@ body {
 
 .btn-delete:active {
   transform: translateY(1px);
-} {
+}
+
+  {
   transform: translateY(1px);
 }
 
@@ -786,6 +788,7 @@ body {
 }
 
 @media print {
+
   /* Hide elements that shouldn't print */
   .no-print,
   .app-header,
@@ -884,7 +887,9 @@ body {
   }
 
   /* Ensure proper page breaks */
-  h1, h2, h3 {
+  h1,
+  h2,
+  h3 {
     page-break-after: avoid;
   }
 
@@ -892,4 +897,73 @@ body {
   .personal-info-wrapper {
     gap: 15px;
   }
+}
+
+/* ===========================
+   Test Backend Page Styles
+   =========================== */
+
+.test-backend-page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.test-backend-page h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-bottom: 24px;
+  color: var(--ev-c-text-1);
+  text-align: center;
+}
+
+.test-backend-buttons {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.test-backend-buttons button {
+  padding: 10px 20px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.1s;
+  background-color: var(--ev-c-gray-3);
+  color: var(--ev-c-text-1);
+}
+
+.test-backend-buttons button:hover {
+  background-color: var(--ev-c-gray-2);
+}
+
+.test-backend-buttons button:disabled {
+  background-color: var(--ev-c-gray-1);
+  cursor: not-allowed;
+  color: var(--ev-c-text-3);
+}
+
+.test-backend-result {
+  background-color: var(--ev-c-black-soft);
+  color: var(--ev-c-text-1);
+  padding: 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+  max-height: 500px;
+  font-family: 'Fira Mono', monospace;
+  font-size: 0.875rem;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  border: 1px solid var(--ev-c-gray-1);
+}
+
+.test-backend-loading {
+  text-align: center;
+  font-size: 1rem;
+  color: var(--ev-c-text-2);
+  margin-bottom: 16px;
 }

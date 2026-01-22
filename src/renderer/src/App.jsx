@@ -1,6 +1,7 @@
 import Home from './pages/Home'
 import AddStudent from './pages/AddStudent'
 import EditStudent from './pages/EditStudent'
+import TestBackend from './components/TestBackend'
 import View from './pages/RecordView'
 import { HashRouter, Route, Routes } from 'react-router-dom'
 
@@ -15,6 +16,7 @@ function App() {
         <Route path="/records" element={<Home />} />
         <Route path="/records/:id" element={<View />} />
         <Route path="/edit/:id" element={<EditStudent />} />
+        <Route path="/test" element={<TestBackend />} />
         <Route path="*" element={<Home />} />
       </Routes>
     </HashRouter>
