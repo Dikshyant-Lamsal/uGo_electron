@@ -1,0 +1,895 @@
+:root {
+  --ev-c-white: #ffffff;
+  --ev-c-white-soft: #f8f8f8;
+  --ev-c-white-mute: #f2f2f2;
+  --ev-c-black: #1b1b1f;
+  --ev-c-black-soft: #222222;
+  --ev-c-black-mute: #282828;
+  --ev-c-gray-1: #515c67;
+  --ev-c-gray-2: #414853;
+  --ev-c-gray-3: #32363f;
+  --ev-c-text-1: rgba(255, 255, 245, 0.86);
+  --ev-c-text-2: rgba(235, 235, 245, 0.6);
+  --ev-c-text-3: rgba(235, 235, 245, 0.38);
+  --ev-button-alt-border: transparent;
+  --ev-button-alt-text: var(--ev-c-text-1);
+  --ev-button-alt-bg: var(--ev-c-gray-3);
+  --ev-button-alt-hover-border: transparent;
+  --ev-button-alt-hover-text: var(--ev-c-text-1);
+  --ev-button-alt-hover-bg: var(--ev-c-gray-2);
+}
+
+:root {
+  --color-background: var(--ev-c-black);
+  --color-background-soft: var(--ev-c-black-soft);
+  --color-background-mute: var(--ev-c-black-mute);
+  --color-text: var(--ev-c-text-1);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  font-weight: normal;
+}
+
+html {
+  height: 100%;
+  overflow-y: auto;
+}
+
+ul {
+  list-style: none;
+}
+
+body {
+  min-height: 100%;
+  height: auto;
+  color: var(--color-text);
+  background: var(--color-background);
+  line-height: 1.6;
+  font-family:
+    Inter,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    Oxygen,
+    Ubuntu,
+    Cantarell,
+    'Fira Sans',
+    'Droid Sans',
+    'Helvetica Neue',
+    sans-serif;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Header action buttons */
+.header-actions {
+  padding-top: 16px;
+}
+
+/* Make buttons visually identical to .action a */
+.action-btn {
+  cursor: pointer;
+  border: 1px solid var(--ev-button-alt-border);
+  text-align: center;
+  font-weight: 600;
+  white-space: nowrap;
+  border-radius: 20px;
+  padding: 0 20px;
+  line-height: 38px;
+  font-size: 14px;
+  color: var(--ev-button-alt-text);
+  background-color: var(--ev-button-alt-bg);
+  outline: none;
+}
+
+.action-btn:hover {
+  border-color: var(--ev-button-alt-hover-border);
+  color: var(--ev-button-alt-hover-text);
+  background-color: var(--ev-button-alt-hover-bg);
+}
+
+.action-btn:active {
+  transform: translateY(1px);
+}
+
+/* Pin header to top */
+.app-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  z-index: 100;
+  padding-top: 20px;
+  background-color: var(--color-background);
+  padding-bottom: 10px;
+}
+
+/* Push main content down so it doesn't hide behind header */
+#root {
+  padding-top: 80px;
+  min-height: 100vh;
+  height: auto;
+}
+
+.Home {
+  min-height: calc(100vh - 80px);
+  height: auto;
+}
+
+/* Records Page */
+.records-page {
+  width: 100%;
+  max-width: 900px;
+  padding: 16px;
+  margin: 0 auto;
+}
+
+.records-page-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+/* Search and Filter Section */
+.search-filter-section {
+  background-color: var(--color-background-mute);
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  border: 1px solid var(--ev-c-gray-1);
+}
+
+.search-box {
+  margin-bottom: 16px;
+}
+
+.search-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ev-c-text-1);
+  margin-bottom: 8px;
+  display: block;
+}
+
+.search-input {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 0.95rem;
+  border: 1px solid var(--ev-c-gray-1);
+  border-radius: 4px;
+  background-color: var(--color-background);
+  color: var(--ev-c-text-1);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.search-input::placeholder {
+  color: var(--ev-c-text-3);
+}
+
+.filter-section {
+  margin-top: 16px;
+}
+
+.filter-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ev-c-text-1);
+  margin-bottom: 10px;
+  display: block;
+}
+
+.filter-radio-group {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.filter-radio-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  color: var(--ev-c-text-2);
+  font-size: 0.9rem;
+}
+
+.filter-radio-option input[type="radio"] {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+}
+
+.filter-radio-option span {
+  user-select: none;
+}
+
+.records-count {
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ev-c-text-2);
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--ev-c-gray-1);
+}
+
+/* Table */
+.records-table {
+  width: 100%;
+  min-width: 100%;
+  border-collapse: collapse;
+  margin-top: 24px;
+  background-color: var(--color-background-mute);
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--ev-c-gray-1);
+}
+
+.records-table thead {
+  background-color: var(--ev-c-gray-3);
+}
+
+.records-table th,
+.records-table td {
+  padding: 14px 16px;
+  text-align: left;
+  font-size: 14px;
+  border: 1px solid var(--ev-c-gray-1);
+}
+
+.records-table th {
+  font-weight: 700;
+  color: var(--ev-c-text-1);
+  padding: 8px;
+}
+
+.records-table td {
+  color: var(--ev-c-text-2);
+  padding: 8px;
+}
+
+.records-table tbody tr {
+  transition: background-color 0.2s;
+}
+
+.records-table tbody tr:hover {
+  background-color: var(--ev-c-gray-3);
+}
+
+/* Action buttons inside table */
+.records-table td .btn-view {
+  background-color: #3b82f6;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  margin-right: 8px;
+  font-size: 14px;
+}
+
+.records-table td .btn-view:hover {
+  background-color: #2563eb;
+}
+
+.records-table td .btn-edit {
+  background-color: #f39c12;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  margin-right: 8px;
+  font-size: 14px;
+}
+
+.records-table td .btn-edit:hover {
+  background-color: #e67e22;
+}
+
+.records-table td .btn-delete-table {
+  background-color: #e74c3c;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.records-table td .btn-delete-table:hover {
+  background-color: #c0392b;
+}
+
+/* Record View Page */
+.record-view {
+  padding: 16px;
+  padding-bottom: 60px;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  height: auto;
+  min-height: calc(100vh - 80px);
+}
+
+.record-view-header {
+  margin-bottom: 16px;
+}
+
+.header-actions-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.btn-print-profile {
+  background-color: #9b59b6;
+  color: white;
+  padding: 8px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-print-profile:hover {
+  background-color: #8e44ad;
+}
+
+.btn-print-profile:active {
+  transform: translateY(1px);
+}
+
+.btn-back {
+  margin-bottom: 16px;
+  background-color: var(--ev-c-gray-2);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.btn-back:hover {
+  background-color: var(--ev-c-gray-1);
+}
+
+.record-view-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+/* Photo Component */
+.student-photo {
+  width: 150px;
+  height: 150px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 3px solid var(--ev-c-gray-1);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.photo-placeholder {
+  width: 150px;
+  height: 150px;
+  border-radius: 8px;
+  background-color: var(--ev-c-gray-3);
+  border: 3px solid var(--ev-c-gray-1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ev-c-text-3);
+  font-size: 14px;
+  text-align: center;
+  padding: 16px;
+}
+
+/* Personal Info Section with Photo */
+.personal-info-wrapper {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--ev-c-gray-1);
+  padding-bottom: 16px;
+}
+
+.personal-info-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.photo-container {
+  flex-shrink: 0;
+}
+
+.btn-back {
+  margin-bottom: 16px;
+  background-color: var(--ev-c-gray-2);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.btn-back:hover {
+  background-color: var(--ev-c-gray-1);
+}
+
+.record-view-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+.record-section {
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--ev-c-gray-1);
+  padding-bottom: 16px;
+  clear: both;
+}
+
+.record-section-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--ev-c-text-1);
+}
+
+.record-fields {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.record-field {
+  display: flex;
+}
+
+.field-label {
+  font-weight: 700;
+  width: 192px;
+  color: var(--ev-c-text-1);
+}
+
+.field-value {
+  color: var(--ev-c-text-2);
+}
+
+/* Not found message */
+.not-found {
+  padding: 16px;
+  color: var(--ev-c-text-2);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .record-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .personal-info-wrapper {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .photo-container {
+    order: -1;
+  }
+
+  .field-label {
+    width: 150px;
+  }
+
+  .records-table {
+    font-size: 12px;
+  }
+
+  .records-table th,
+  .records-table td {
+    padding: 8px 10px;
+  }
+
+  .btn-view,
+  .btn-print {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+
+  .form-fields-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .record-view {
+    padding: 12px;
+  }
+
+  .record-view-title {
+    font-size: 1.25rem;
+  }
+
+  .record-section-title {
+    font-size: 1.1rem;
+  }
+
+  .field-label {
+    width: 120px;
+    font-size: 13px;
+  }
+
+  .field-value {
+    font-size: 13px;
+  }
+
+  .student-photo,
+  .photo-placeholder {
+    width: 120px;
+    height: 120px;
+  }
+
+  .records-table th,
+  .records-table td {
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+}
+
+/* Add Student Page */
+.add-student-page {
+  padding-bottom: 40px;
+}
+
+.add-student-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.add-student-header {
+  margin-bottom: 30px;
+  text-align: center;
+}
+
+.add-student-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--ev-c-text-1);
+  margin-bottom: 8px;
+}
+
+.add-student-subtitle {
+  color: var(--ev-c-text-2);
+  font-size: 1rem;
+}
+
+/* Source Sheet Selector */
+.source-sheet-selector {
+  background-color: var(--ev-c-gray-3);
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 30px;
+  border: 1px solid var(--ev-c-gray-1);
+}
+
+.source-sheet-display {
+  background-color: var(--ev-c-gray-3);
+  padding: 15px 20px;
+  border-radius: 8px;
+  margin-bottom: 30px;
+  border: 1px solid var(--ev-c-gray-1);
+  text-align: center;
+}
+
+.source-sheet-badge {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ev-c-text-1);
+}
+
+.source-sheet-label {
+  display: block;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--ev-c-text-1);
+  margin-bottom: 12px;
+}
+
+.radio-group {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  color: var(--ev-c-text-2);
+  font-size: 0.95rem;
+}
+
+.radio-option input[type="radio"] {
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+}
+
+.radio-option span {
+  user-select: none;
+}
+
+/* Form Sections */
+.add-student-form {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+.form-section {
+  background-color: var(--color-background-mute);
+  padding: 24px;
+  border-radius: 8px;
+  border: 1px solid var(--ev-c-gray-1);
+}
+
+.form-section-title {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--ev-c-text-1);
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--ev-c-gray-1);
+}
+
+.form-fields-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ev-c-text-1);
+}
+
+.form-input {
+  padding: 10px 12px;
+  font-size: 0.95rem;
+  border: 1px solid var(--ev-c-gray-1);
+  border-radius: 4px;
+  background-color: var(--color-background);
+  color: var(--ev-c-text-1);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.form-input::placeholder {
+  color: var(--ev-c-text-3);
+}
+
+/* Form Actions */
+.form-actions {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 2px solid var(--ev-c-gray-1);
+}
+
+.btn-submit {
+  background-color: #2ecc71;
+  color: white;
+  padding: 12px 40px;
+  font-size: 1rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.1s;
+}
+
+.btn-submit:hover {
+  background-color: #27ae60;
+}
+
+.btn-submit:active {
+  transform: translateY(1px);
+}
+
+.btn-cancel {
+  background-color: var(--ev-c-gray-2);
+  color: white;
+  padding: 12px 40px;
+  font-size: 1rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.1s;
+}
+
+.btn-cancel:hover {
+  background-color: var(--ev-c-gray-1);
+}
+
+.btn-cancel:active {
+  transform: translateY(1px);
+}
+
+.btn-delete {
+  background-color: #e74c3c;
+  color: white;
+  padding: 12px 40px;
+  font-size: 1rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.1s;
+}
+
+.btn-delete:hover {
+  background-color: #c0392b;
+}
+
+.btn-delete:active {
+  transform: translateY(1px);
+} {
+  transform: translateY(1px);
+}
+
+/* Print Styles */
+.print-only {
+  display: none;
+}
+
+.no-print {
+  display: block;
+}
+
+@media print {
+  /* Hide elements that shouldn't print */
+  .no-print,
+  .app-header,
+  .btn-back,
+  .btn-print-profile,
+  .header-actions-row {
+    display: none !important;
+  }
+
+  /* Show print-only elements */
+  .print-only {
+    display: block !important;
+  }
+
+  /* Print header styling */
+  .print-header {
+    text-align: center;
+    padding: 20px;
+    border-bottom: 3px solid #2c3e50;
+    margin-bottom: 30px;
+  }
+
+  .print-header h1 {
+    font-size: 24px;
+    color: #2c3e50;
+    margin-bottom: 5px;
+  }
+
+  .print-header p {
+    font-size: 12px;
+    color: #7f8c8d;
+  }
+
+  /* Print footer styling */
+  .print-footer {
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 2px solid #ecf0f1;
+    text-align: center;
+    font-size: 10px;
+    color: #95a5a6;
+  }
+
+  /* Adjust overall layout for print */
+  body {
+    background: white;
+    color: black;
+  }
+
+  .record-view {
+    padding: 20px;
+    max-width: 100%;
+  }
+
+  .record-view-title {
+    color: #2c3e50;
+    font-size: 22px;
+    margin-bottom: 20px;
+    page-break-after: avoid;
+  }
+
+  /* Section styling for print */
+  .record-section,
+  .personal-info-wrapper {
+    page-break-inside: avoid;
+    margin-bottom: 20px;
+    border: 1px solid #ecf0f1;
+    padding: 15px;
+  }
+
+  .record-section-title {
+    color: #2c3e50;
+    font-size: 16px;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 5px;
+    margin-bottom: 15px;
+  }
+
+  .record-fields {
+    gap: 10px;
+  }
+
+  .field-label {
+    color: #2c3e50;
+    font-weight: 600;
+  }
+
+  .field-value {
+    color: #34495e;
+  }
+
+  /* Photo styling for print */
+  .student-photo,
+  .photo-placeholder {
+    border: 2px solid #7f8c8d;
+  }
+
+  /* Ensure proper page breaks */
+  h1, h2, h3 {
+    page-break-after: avoid;
+  }
+
+  /* Remove unnecessary spacing */
+  .personal-info-wrapper {
+    gap: 15px;
+  }
+}
