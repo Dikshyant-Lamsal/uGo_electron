@@ -72,6 +72,7 @@ body {
 /* Header action buttons */
 .header-actions {
   padding-top: 16px;
+  padding-bottom: 20px;
 }
 
 /* Make buttons visually identical to .action a */
@@ -112,6 +113,9 @@ body {
   padding-top: 20px;
   background-color: var(--color-background);
   padding-bottom: 10px;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
 }
 
 /* Push main content down so it doesn't hide behind header */
@@ -1090,221 +1094,222 @@ body {
 
 /* eslint-disable prettier/prettier */
 .participations-section {
-    margin: 20px 0;
-    padding: 20px;
-    background: #f5f5f5;
-    border-radius: 8px;
+  margin: 20px 0;
+  padding: 20px;
+  background: #f5f5f5;
+  border-radius: 8px;
 }
 
 .participations-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
 }
 
 .participations-header h3 {
-    margin: 0;
-    color: #333;
+  margin: 0;
+  color: #333;
 }
 
 .btn-add-participation {
-    background: #4CAF50;
-    color: white;
-    border: none;
-    padding: 10px 20px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 14px;
+  background: #4CAF50;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
 }
 
 .btn-add-participation:hover {
-    background: #45a049;
+  background: #45a049;
 }
 
 .participations-loading {
-    text-align: center;
-    padding: 20px;
-    color: #666;
+  text-align: center;
+  padding: 20px;
+  color: #666;
 }
 
 .no-participations {
-    text-align: center;
-    padding: 40px;
-    color: #999;
+  text-align: center;
+  padding: 40px;
+  color: #999;
 }
 
 .participations-list {
-    display: grid;
-    gap: 15px;
+  display: grid;
+  gap: 15px;
 }
 
 .participation-card {
-    background: white;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .participation-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
 }
 
 .participation-header h4 {
-    margin: 0;
-    color: #333;
-    font-size: 18px;
+  margin: 0;
+  color: #333;
+  font-size: 18px;
 }
 
 .participation-type {
-    background: #2196F3;
-    color: white;
-    padding: 5px 12px;
-    border-radius: 15px;
-    font-size: 12px;
-    font-weight: 500;
+  background: #2196F3;
+  color: white;
+  padding: 5px 12px;
+  border-radius: 15px;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .participation-details {
-    margin-bottom: 15px;
+  margin-bottom: 15px;
 }
 
 .participation-details p {
-    margin: 8px 0;
-    color: #666;
+  margin: 8px 0;
+  color: #666;
 }
 
 .participation-notes {
-    margin-top: 10px;
-    padding: 10px;
-    background: #f9f9f9;
-    border-left: 3px solid #2196F3;
-    font-style: italic;
+  margin-top: 10px;
+  padding: 10px;
+  background: #f9f9f9;
+  border-left: 3px solid #2196F3;
+  font-style: italic;
 }
 
 .participation-actions {
-    display: flex;
-    gap: 10px;
+  display: flex;
+  gap: 10px;
 }
 
-.btn-edit, .btn-delete {
-    padding: 8px 16px;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 14px;
+.btn-edit,
+.btn-delete {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
 }
 
 .btn-edit {
-    background: #FF9800;
-    color: white;
+  background: #FF9800;
+  color: white;
 }
 
 .btn-edit:hover {
-    background: #F57C00;
+  background: #F57C00;
 }
 
 .btn-delete {
-    background: #f44336;
-    color: white;
+  background: #f44336;
+  color: white;
 }
 
 .btn-delete:hover {
-    background: #d32f2f;
+  background: #d32f2f;
 }
 
 /* Form Styles */
 .participation-form {
-    background: white;
-    padding: 20px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .form-group {
-    margin-bottom: 15px;
+  margin-bottom: 15px;
 }
 
 .form-group label {
-    display: block;
-    margin-bottom: 5px;
-    font-weight: 500;
-    color: #333;
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 500;
+  color: #333;
 }
 
 .form-group input,
 .form-group select,
 .form-group textarea {
-    width: 100%;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    font-size: 14px;
-    box-sizing: border-box;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  font-size: 14px;
+  box-sizing: border-box;
 }
 
 .form-group input:focus,
 .form-group select:focus,
 .form-group textarea:focus {
-    outline: none;
-    border-color: #2196F3;
+  outline: none;
+  border-color: #2196F3;
 }
 
 .form-row {
-    display: grid;
-    grid-template-columns: 2fr 2fr 1fr;
-    gap: 15px;
+  display: grid;
+  grid-template-columns: 2fr 2fr 1fr;
+  gap: 15px;
 }
 
 .form-buttons {
-    display: flex;
-    gap: 10px;
-    margin-top: 20px;
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
 }
 
 .btn-submit {
-    background: #4CAF50;
-    color: white;
-    padding: 10px 20px;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 14px;
+  background: #4CAF50;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
 }
 
 .btn-submit:hover {
-    background: #45a049;
+  background: #45a049;
 }
 
 .btn-cancel {
-    background: #999;
-    color: white;
-    padding: 10px 20px;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 14px;
+  background: #999;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
 }
 
 .btn-cancel:hover {
-    background: #777;
+  background: #777;
 }
 
 .info-banner {
-    background: #E3F2FD;
-    border-left: 4px solid #2196F3;
-    padding: 15px 20px;
-    margin: 20px 0;
-    border-radius: 5px;
+  background: #E3F2FD;
+  border-left: 4px solid #2196F3;
+  padding: 15px 20px;
+  margin: 20px 0;
+  border-radius: 5px;
 }
 
 .info-banner p {
-    margin: 0;
-    color: #1976D2;
+  margin: 0;
+  color: #1976D2;
 }
 
 /* Replace the participations CSS section with this: */
@@ -1314,448 +1319,464 @@ body {
    =========================== */
 
 .participations-section {
-    margin: 20px 0;
-    padding: 20px;
-    background: var(--color-background-mute);
-    border-radius: 8px;
-    border: 1px solid var(--ev-c-gray-1);
+  margin: 20px 0;
+  padding: 20px;
+  background: var(--color-background-mute);
+  border-radius: 8px;
+  border: 1px solid var(--ev-c-gray-1);
 }
 
 .participations-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
 }
 
 .participations-header h3 {
-    margin: 0;
-    color: var(--ev-c-text-1);
-    font-size: 1.3rem;
-    font-weight: 600;
+  margin: 0;
+  color: var(--ev-c-text-1);
+  font-size: 1.3rem;
+  font-weight: 600;
 }
 
 .btn-add-participation {
-    background: #2ecc71;
-    color: white;
-    border: none;
-    padding: 10px 20px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 600;
-    transition: background-color 0.2s, transform 0.1s;
+  background: #2ecc71;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background-color 0.2s, transform 0.1s;
 }
 
 .btn-add-participation:hover {
-    background: #27ae60;
+  background: #27ae60;
 }
 
 .btn-add-participation:active {
-    transform: translateY(1px);
+  transform: translateY(1px);
 }
 
 .participations-loading {
-    text-align: center;
-    padding: 20px;
-    color: var(--ev-c-text-2);
+  text-align: center;
+  padding: 20px;
+  color: var(--ev-c-text-2);
 }
 
 .no-participations {
-    text-align: center;
-    padding: 40px;
-    color: var(--ev-c-text-3);
+  text-align: center;
+  padding: 40px;
+  color: var(--ev-c-text-3);
 }
 
 .no-participations p {
-    color: var(--ev-c-text-2);
-    margin: 5px 0;
+  color: var(--ev-c-text-2);
+  margin: 5px 0;
 }
 
 .participations-list {
-    display: grid;
-    gap: 15px;
+  display: grid;
+  gap: 15px;
 }
 
 .participation-card {
-    background: var(--color-background);
-    padding: 20px;
-    border-radius: 8px;
-    border: 1px solid var(--ev-c-gray-1);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-    transition: transform 0.2s, box-shadow 0.2s;
+  background: var(--color-background);
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid var(--ev-c-gray-1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .participation-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
 }
 
 .participation-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 15px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid var(--ev-c-gray-1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--ev-c-gray-1);
 }
 
 .participation-header h4 {
-    margin: 0;
-    color: var(--ev-c-text-1);
-    font-size: 18px;
-    font-weight: 600;
+  margin: 0;
+  color: var(--ev-c-text-1);
+  font-size: 18px;
+  font-weight: 600;
 }
 
 .participation-type {
-    background: #3498db;
-    color: white;
-    padding: 5px 12px;
-    border-radius: 15px;
-    font-size: 12px;
-    font-weight: 600;
+  background: #3498db;
+  color: white;
+  padding: 5px 12px;
+  border-radius: 15px;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .participation-details {
-    margin-bottom: 15px;
+  margin-bottom: 15px;
 }
 
 .participation-details p {
-    margin: 8px 0;
-    color: var(--ev-c-text-2);
-    font-size: 14px;
+  margin: 8px 0;
+  color: var(--ev-c-text-2);
+  font-size: 14px;
 }
 
 .participation-details strong {
-    color: var(--ev-c-text-1);
+  color: var(--ev-c-text-1);
 }
 
 .participation-notes {
-    margin-top: 10px;
-    padding: 10px;
-    background: var(--ev-c-gray-3);
-    border-left: 3px solid #3498db;
-    font-style: italic;
-    border-radius: 4px;
-    color: var(--ev-c-text-2);
+  margin-top: 10px;
+  padding: 10px;
+  background: var(--ev-c-gray-3);
+  border-left: 3px solid #3498db;
+  font-style: italic;
+  border-radius: 4px;
+  color: var(--ev-c-text-2);
 }
 
 .participation-actions {
-    display: flex;
-    gap: 10px;
-    padding-top: 10px;
-    border-top: 1px solid var(--ev-c-gray-1);
+  display: flex;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--ev-c-gray-1);
 }
 
 .participation-actions .btn-edit {
-    background: #f39c12;
-    color: white;
-    padding: 8px 16px;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 600;
-    transition: background-color 0.2s, transform 0.1s;
+  background: #f39c12;
+  color: white;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background-color 0.2s, transform 0.1s;
 }
 
 .participation-actions .btn-edit:hover {
-    background: #e67e22;
+  background: #e67e22;
 }
 
 .participation-actions .btn-delete {
-    background: #e74c3c;
-    color: white;
-    padding: 8px 16px;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 600;
-    transition: background-color 0.2s, transform 0.1s;
+  background: #e74c3c;
+  color: white;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background-color 0.2s, transform 0.1s;
 }
 
 .participation-actions .btn-delete:hover {
-    background: #c0392b;
+  background: #c0392b;
 }
 
 .participation-actions .btn-edit:active,
 .participation-actions .btn-delete:active {
-    transform: translateY(1px);
+  transform: translateY(1px);
 }
 
 /* Participation Form Styles */
 .participation-form {
-    background: var(--color-background);
-    padding: 20px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-    border: 1px solid var(--ev-c-gray-1);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  background: var(--color-background);
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  border: 1px solid var(--ev-c-gray-1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .form-group {
-    margin-bottom: 15px;
+  margin-bottom: 15px;
 }
 
 .form-group label {
-    display: block;
-    margin-bottom: 8px;
-    font-weight: 600;
-    color: var(--ev-c-text-1);
-    font-size: 0.95rem;
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: var(--ev-c-text-1);
+  font-size: 0.95rem;
 }
 
 .form-group input,
 .form-group select,
 .form-group textarea {
-    width: 100%;
-    padding: 10px 12px;
-    border: 1px solid var(--ev-c-gray-1);
-    border-radius: 5px;
-    font-size: 14px;
-    box-sizing: border-box;
-    background-color: var(--color-background-mute);
-    color: var(--ev-c-text-1);
-    transition: border-color 0.2s, box-shadow 0.2s;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--ev-c-gray-1);
+  border-radius: 5px;
+  font-size: 14px;
+  box-sizing: border-box;
+  background-color: var(--color-background-mute);
+  color: var(--ev-c-text-1);
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .form-group input:focus,
 .form-group select:focus,
 .form-group textarea:focus {
-    outline: none;
-    border-color: #3498db;
-    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
 }
 
 .form-group input::placeholder,
 .form-group textarea::placeholder {
-    color: var(--ev-c-text-3);
+  color: var(--ev-c-text-3);
 }
 
 .form-group select {
-    cursor: pointer;
+  cursor: pointer;
 }
 
 .form-row {
-    display: grid;
-    grid-template-columns: 2fr 2fr 1fr;
-    gap: 15px;
+  display: grid;
+  grid-template-columns: 2fr 2fr 1fr;
+  gap: 15px;
 }
 
 @media (max-width: 768px) {
-    .form-row {
-        grid-template-columns: 1fr;
-    }
+  .form-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 .form-buttons {
-    display: flex;
-    gap: 10px;
-    margin-top: 20px;
-    padding-top: 15px;
-    border-top: 1px solid var(--ev-c-gray-1);
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid var(--ev-c-gray-1);
 }
 
 .form-buttons .btn-submit {
-    background: #2ecc71;
-    color: white;
-    padding: 10px 24px;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 600;
-    transition: background-color 0.2s, transform 0.1s;
+  background: #2ecc71;
+  color: white;
+  padding: 10px 24px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background-color 0.2s, transform 0.1s;
 }
 
 .form-buttons .btn-submit:hover {
-    background: #27ae60;
+  background: #27ae60;
 }
 
 .form-buttons .btn-submit:active {
-    transform: translateY(1px);
+  transform: translateY(1px);
 }
 
 .form-buttons .btn-cancel {
-    background: var(--ev-c-gray-2);
-    color: white;
-    padding: 10px 24px;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 600;
-    transition: background-color 0.2s, transform 0.1s;
+  background: var(--ev-c-gray-2);
+  color: white;
+  padding: 10px 24px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background-color 0.2s, transform 0.1s;
 }
 
 .form-buttons .btn-cancel:hover {
-    background: var(--ev-c-gray-1);
+  background: var(--ev-c-gray-1);
 }
 
 .form-buttons .btn-cancel:active {
-    transform: translateY(1px);
+  transform: translateY(1px);
 }
 
 /* Info Banner */
 .info-banner {
-    background: rgba(52, 152, 219, 0.1);
-    border-left: 4px solid #3498db;
-    padding: 15px 20px;
-    margin: 20px 0;
-    border-radius: 5px;
+  background: rgba(52, 152, 219, 0.1);
+  border-left: 4px solid #3498db;
+  padding: 15px 20px;
+  margin: 20px 0;
+  border-radius: 5px;
 }
 
 .info-banner p {
-    margin: 0;
-    color: var(--ev-c-text-1);
+  margin: 0;
+  color: var(--ev-c-text-1);
 }
 
 .info-banner strong {
-    color: #3498db;
+  color: #3498db;
 }
 
 /* Participations section in RecordView */
 .participations-section-wrapper {
-    margin: 30px 0;
-    padding: 20px;
-    background: var(--color-background-mute);
-    border-radius: 8px;
-    border: 1px solid var(--ev-c-gray-1);
+  margin: 30px 0;
+  padding: 20px;
+  background: var(--color-background-mute);
+  border-radius: 8px;
+  border: 1px solid var(--ev-c-gray-1);
 }
 
 .participations-section-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
 }
 
 .participations-section-header .record-section-title {
-    margin-bottom: 0;
+  margin-bottom: 0;
 }
 
 .btn-toggle-participations {
-    background: #3498db;
-    color: white;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 600;
-    transition: background 0.3s, transform 0.1s;
+  background: #3498db;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background 0.3s, transform 0.1s;
 }
 
 .btn-toggle-participations:hover {
-    background: #2980b9;
+  background: #2980b9;
 }
 
 .btn-toggle-participations:active {
-    transform: translateY(1px);
+  transform: translateY(1px);
 }
 
 /* Participations Summary (optional - add to ParticipationsViewOnly) */
 .participations-summary {
-    margin-top: 20px;
-    padding: 15px;
-    background: var(--ev-c-gray-3);
-    border-radius: 5px;
-    display: flex;
-    gap: 30px;
-    justify-content: center;
-    border: 1px solid var(--ev-c-gray-1);
+  margin-top: 20px;
+  padding: 15px;
+  background: var(--ev-c-gray-3);
+  border-radius: 5px;
+  display: flex;
+  gap: 30px;
+  justify-content: center;
+  border: 1px solid var(--ev-c-gray-1);
 }
 
 .participations-summary p {
-    margin: 0;
-    color: var(--ev-c-text-1);
-    font-weight: 600;
+  margin: 0;
+  color: var(--ev-c-text-1);
+  font-weight: 600;
 }
 
 .participations-summary strong {
-    color: #3498db;
+  color: #3498db;
 }
 
 /* Print Styles for Participations */
 @media print {
-    .no-print {
-        display: none !important;
-    }
-    
-    /* If you want participations to print, comment out this block: */
-    .participations-section-wrapper {
-        display: none;
-    }
-    
-    /* If you want to print participations, uncomment this instead:
-    .participations-section-wrapper {
-        page-break-inside: avoid;
-        background: white;
-        border: 1px solid #ddd;
-    }
-    
-    .participation-card {
-        background: white;
-        border: 1px solid #ddd;
-        page-break-inside: avoid;
-    }
-    
-    .btn-add-participation,
-    .btn-toggle-participations,
-    .participation-actions {
-        display: none !important;
-    }
-    */
+  .no-print {
+    display: none !important;
+  }
+
+  /* If you want participations to print, comment out this block: */
+  .participations-section-wrapper {
+    display: none;
+  }
+
 }
 
 /* Responsive Design for Participations */
 @media (max-width: 768px) {
-    .participations-section {
-        padding: 15px;
-    }
-    
-    .participations-header {
-        flex-direction: column;
-        gap: 10px;
-        align-items: flex-start;
-    }
-    
-    .btn-add-participation {
-        width: 100%;
-    }
-    
-    .participation-actions {
-        flex-direction: column;
-    }
-    
-    .participation-actions .btn-edit,
-    .participation-actions .btn-delete {
-        width: 100%;
-    }
+  .participations-section {
+    padding: 15px;
+  }
+
+  .participations-header {
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+  }
+
+  .btn-add-participation {
+    width: 100%;
+  }
+
+  .participation-actions {
+    flex-direction: column;
+  }
+
+  .participation-actions .btn-edit,
+  .participation-actions .btn-delete {
+    width: 100%;
+  }
 }
 
 .btn-save-pdf {
-    background-color: #27ae60;
-    color: white;
-    padding: 8px 20px;
-    font-size: 14px;
-    font-weight: 600;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background-color 0.2s, transform 0.1s;
+  background-color: #27ae60;
+  color: white;
+  padding: 8px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.1s;
 }
 
 .btn-save-pdf:hover:not(:disabled) {
-    background-color: #229954;
+  background-color: #229954;
 }
 
 .btn-save-pdf:disabled {
-    background-color: #95a5a6;
-    cursor: not-allowed;
+  background-color: #95a5a6;
+  cursor: not-allowed;
 }
 
 .btn-save-pdf:active:not(:disabled) {
-    transform: translateY(1px);
+  transform: translateY(1px);
+}
+
+.logo {
+  margin-left: 0px;
+  margin-right: auto;
+  padding-top: 10px;
+}
+
+.logo-link {
+  display: flex;
+  align-items: center; /* Vertically center the logo and text */
+  text-decoration: none;
+  transition: transform 0.2s;
+}
+
+.logo-link:hover {
+  transform: scale(1.05); /* subtle hover effect */
+}
+
+.logo-image {
+  width: 80px;           /* slightly larger for better visibility */
+  height: 80px;
+  object-fit: contain;
+  margin-right: 12px;
+  border-radius: 12px;   /* soft rounded corners */
+  border: 1px solid var(--ev-c-gray-1);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.25);
+}
+
+.logo-text {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--ev-c-text-1);
+  white-space: nowrap;
+  letter-spacing: 0.5px;
 }

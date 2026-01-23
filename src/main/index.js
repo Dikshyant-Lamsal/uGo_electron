@@ -9,6 +9,7 @@ import { dialog } from 'electron';
 // Import Excel backend service
 import './excelService.js'; // ✅ Just import once; it registers IPC handlers
 
+
 // Register custom protocol BEFORE app.whenReady()
 protocol.registerSchemesAsPrivileged([
   {
@@ -29,7 +30,7 @@ function createWindow() {
     height: 670,
     show: false,
     autoHideMenuBar: true,
-    ...(process.platform === 'linux' ? { icon } : {}),
+    icon,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false
