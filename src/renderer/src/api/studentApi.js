@@ -138,7 +138,200 @@ class StudentAPI {
             return { success: false, error: error.message };
         }
     }
+
+    /**
+ * Save student photo
+ * @param {number} id - Student ID
+ * @param {File} file - Photo file
+ * @returns {Promise<{success: boolean, message: string}>}
+ */
+    async savePhoto(id, file) {
+        try {
+            // Read file as base64
+            const reader = new FileReader();
+
+            return new Promise((resolve, reject) => {
+                reader.onload = async () => {
+                    const base64Data = reader.result.split(',')[1]; // Remove data:image/jpeg;base64,
+                    const extension = file.name.split('.').pop().toLowerCase();
+
+                    const result = await window.api.photos.savePhoto({
+                        id,
+                        photoData: base64Data,
+                        extension
+                    });
+
+                    resolve(result);
+                };
+
+                reader.onerror = () => reject(new Error('Failed to read file'));
+                reader.readAsDataURL(file);
+            });
+        } catch (error) {
+            console.error('Error saving photo:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Check if photo exists for student
+     * @param {number} id - Student ID
+     */
+    async photoExists(id) {
+        try {
+            const result = await window.api.photos.photoExists(id);
+            return result;
+        } catch (error) {
+            console.error('Error checking photo:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Get photo path for student
+     * @param {number} id - Student ID
+     */
+    async getPhotoPath(id) {
+        try {
+            const result = await window.api.photos.getPhotoPath(id);
+            return result;
+        } catch (error) {
+            console.error('Error getting photo path:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Delete student photo
+     * @param {number} id - Student ID
+     */
+    async deletePhoto(id) {
+        try {
+            const result = await window.api.photos.deletePhoto(id);
+            return result;
+        } catch (error) {
+            console.error('Error deleting photo:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // ============================================
+    // PARTICIPATION OPERATIONS
+    // ============================================
+
+    /**
+     * Get all participations for a student
+     * @param {number} studentId - Student ID
+     * @returns {Promise<{success: boolean, data: Array}>}
+     */
+    async getParticipations(studentId) {
+        try {
+            const result = await window.api.excel.getParticipations(studentId);
+            return result;
+        } catch (error) {
+            console.error('Error fetching participations:', error);
+            return { success: false, error: error.message, data: [] };
+        }
+    }
+
+    /**
+     * Get single participation by ID
+     * @param {number} id - Participation ID
+     * @returns {Promise<{success: boolean, data: Object}>}
+     */
+    async getParticipation(id) {
+        try {
+            const result = await window.api.excel.getParticipation(id);
+            return result;
+        } catch (error) {
+            console.error('Error fetching participation:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Add new participation
+     * @param {Object} participationData - Participation information
+     * @returns {Promise<{success: boolean, data: Object, message: string}>}
+     */
+    async addParticipation(participationData) {
+        try {
+            const result = await window.api.excel.addParticipation(participationData);
+            return result;
+        } catch (error) {
+            console.error('Error adding participation:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Update participation
+     * @param {number} id - Participation ID
+     * @param {Object} updates - Fields to update
+     * @returns {Promise<{success: boolean, data: Object, message: string}>}
+     */
+    async updateParticipation(id, updates) {
+        try {
+            const result = await window.api.excel.updateParticipation(id, updates);
+            return result;
+        } catch (error) {
+            console.error('Error updating participation:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Delete participation
+     * @param {number} id - Participation ID
+     * @returns {Promise<{success: boolean, message: string}>}
+     */
+    async deleteParticipation(id) {
+        try {
+            const result = await window.api.excel.deleteParticipation(id);
+            return result;
+        } catch (error) {
+            console.error('Error deleting participation:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Get all participations (for reports)
+     * @param {Object} params - Query parameters
+     * @returns {Promise<{success: boolean, data: Array}>}
+     */
+    async getAllParticipations(params = {}) {
+        try {
+            const result = await window.api.excel.getAllParticipations(params);
+            return result;
+        } catch (error) {
+            console.error('Error fetching all participations:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // ============================================
+    // PDF OPERATIONS
+    // ============================================
+
+    /**
+     * Save student profile as PDF
+     * @param {string} htmlContent - Full HTML string
+     * @param {string} defaultFileName - Default file name
+     * @returns {Promise<{success: boolean, filePath?: string, canceled?: boolean, error?: string}>}
+     */
+    async saveStudentPDF(htmlContent, defaultFileName = 'student-profile.pdf') {
+        try {
+            const result = await window.api.pdf.save(htmlContent, defaultFileName);
+            return result;
+        } catch (error) {
+            console.error('Error saving PDF:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
 }
+
 
 // Export singleton instance
 export default new StudentAPI();

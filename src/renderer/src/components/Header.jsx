@@ -11,9 +11,6 @@ function Header() {
         <div className="action">
           <Link to="/add-student" className="action-btn">Add Student</Link>
         </div>
-        <div className="action">
-          <Link to="/test" className="action-btn">Test Backend</Link>
-        </div>
       </nav>
     </header>
   );

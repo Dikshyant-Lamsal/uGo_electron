@@ -2,15 +2,22 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
-import { sampleStudents } from "./sampleData";
+import studentAPI from "../api/studentApi";
 
 function AddStudent() {
     const navigate = useNavigate();
+    const [photoFile, setPhotoFile] = useState(null);
+    const [photoPreview, setPhotoPreview] = useState(null);
+
     const [formData, setFormData] = useState({
         Full_Name: "",
         District: "",
         Address: "",
         Contact_Number: "",
+        Father_Name: "",
+        Father_Contact: "",
+        Mother_Name: "",
+        Mother_Contact: "",
         Program: "",
         College: "",
         Current_Year: "",
@@ -51,30 +58,61 @@ function AddStudent() {
         }));
     };
 
-    const handleSubmit = (e) => {
+    const handlePhotoChange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+            alert('Please select an image file');
+            return;
+        }
+
+        if (file.size > 5 * 1024 * 1024) {
+            alert('Image must be smaller than 5MB');
+            return;
+        }
+
+        setPhotoFile(file);
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            setPhotoPreview(e.target.result);
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        
+
         if (!formData.Full_Name.trim()) {
             alert("Full Name is required!");
             return;
         }
 
-        // Generate new ID
-        const newId = sampleStudents.length > 0 
-            ? Math.max(...sampleStudents.map(s => s.id)) + 1 
-            : 1;
+        const result = await studentAPI.addStudent(formData);
 
-        const newStudent = {
-            id: newId,
-            Student_ID: `${formData.Source_Sheet}_${newId}`,
-            ...formData
-        };
+        if (result.success) {
+            const newStudent = result.data;
 
-        // In a real app, you would save to backend/database here
-        console.log("New Student:", newStudent);
-        
-        alert(`Student "${formData.Full_Name}" added successfully!`);
-        navigate("/records");
+            if (photoFile) {
+                const photoResult = await studentAPI.savePhoto(newStudent.id, photoFile);
+                if (!photoResult.success) {
+                    console.error('Failed to upload photo:', photoResult.error);
+                    alert(`Student added, but photo upload failed: ${photoResult.error}`);
+                }
+            }
+
+            alert(`Student "${formData.Full_Name}" added successfully!`);
+            
+            // ✅ Option: Navigate to edit page so they can add participations
+            if (window.confirm('Would you like to add participations for this student now?')) {
+                navigate(`/records/${newStudent.id}/edit`);
+            } else {
+                navigate("/records");
+            }
+        } else {
+            alert('Failed to add student: ' + result.error);
+        }
     };
 
     const formSections = [
@@ -85,6 +123,15 @@ function AddStudent() {
                 { name: "District", label: "District", type: "text" },
                 { name: "Address", label: "Address", type: "text" },
                 { name: "Contact_Number", label: "Contact Number", type: "text" }
+            ]
+        },
+        {
+            title: "Parent/Guardian Information",
+            fields: [
+                { name: "Father_Name", label: "Father's Name", type: "text" },
+                { name: "Father_Contact", label: "Father's Contact", type: "text" },
+                { name: "Mother_Name", label: "Mother's Name", type: "text" },
+                { name: "Mother_Contact", label: "Mother's Contact", type: "text" }
             ]
         },
         {
@@ -142,7 +189,7 @@ function AddStudent() {
         {
             title: "Additional Information",
             fields: [
-                { name: "Participation", label: "Participation", type: "text" },
+                { name: "Participation", label: "Participation (Legacy)", type: "text" },
                 { name: "Remarks", label: "Remarks", type: "text" }
             ]
         }
@@ -155,6 +202,11 @@ function AddStudent() {
                 <div className="add-student-header">
                     <h1 className="add-student-title">Add New Student</h1>
                     <p className="add-student-subtitle">Fill in the student information below</p>
+                </div>
+
+                {/* ✅ ADD INFO BANNER */}
+                <div className="info-banner">
+                    <p>ℹ️ <strong>Note:</strong> You can add event participations after saving the student record.</p>
                 </div>
 
                 <div className="source-sheet-selector">
@@ -172,6 +224,51 @@ function AddStudent() {
                                 <span>{cohort}</span>
                             </label>
                         ))}
+                    </div>
+                </div>
+
+                <div className="form-section">
+                    <h2 className="form-section-title">📷 Student Photo (Optional)</h2>
+                    <div className="photo-upload-section">
+                        <div className="photo-upload-preview">
+                            {photoPreview ? (
+                                <img
+                                    src={photoPreview}
+                                    alt="Preview"
+                                    className="student-photo"
+                                />
+                            ) : (
+                                <div className="photo-placeholder">
+                                    No photo selected
+                                </div>
+                            )}
+                        </div>
+                        <div className="photo-upload-controls">
+                            <label className="btn-upload-photo">
+                                📷 Select Photo
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handlePhotoChange}
+                                    style={{ display: 'none' }}
+                                />
+                            </label>
+                            {photoFile && (
+                                <button
+                                    type="button"
+                                    className="btn-remove-photo"
+                                    onClick={() => {
+                                        setPhotoFile(null);
+                                        setPhotoPreview(null);
+                                    }}
+                                >
+                                    ✖ Remove
+                                </button>
+                            )}
+                            <p className="photo-upload-hint">
+                                JPG, PNG, or GIF • Max 5MB
+                            </p>
+                        </div>
                     </div>
                 </div>
 
@@ -203,8 +300,8 @@ function AddStudent() {
                         <button type="submit" className="btn-submit">
                             Save Student
                         </button>
-                        <button 
-                            type="button" 
+                        <button
+                            type="button"
                             className="btn-cancel"
                             onClick={() => navigate(-1)}
                         >

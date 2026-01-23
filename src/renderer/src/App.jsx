@@ -4,10 +4,12 @@ import EditStudent from './pages/EditStudent'
 import TestBackend from './components/TestBackend'
 import View from './pages/RecordView'
 import { HashRouter, Route, Routes } from 'react-router-dom'
+import Header from './components/Header'
 
 function App() {
   return (
     <HashRouter>
+      <Header />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/home" element={<Home />} />

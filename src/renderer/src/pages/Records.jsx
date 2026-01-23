@@ -5,18 +5,18 @@ import studentAPI from "../api/studentApi";  // ✅ Default import (no curly bra
 
 export default function Records() {
     const navigate = useNavigate();
-    
-    const [students, setStudents] = useState([]);  
-    const [loading, setLoading] = useState(true);  
+
+    const [students, setStudents] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
     const [cohortFilter, setCohortFilter] = useState("All");
 
-   
+
     useEffect(() => {
         const fetchStudents = async () => {
             setLoading(true);
             const result = await studentAPI.getStudents({ page: 1, limit: 500 });
-            
+
             if (result.success) {
                 setStudents(result.data);
             } else {
@@ -25,7 +25,7 @@ export default function Records() {
             }
             setLoading(false);
         };
-        
+
         fetchStudents();
     }, []); // Empty dependency array = run once on mount
 
@@ -33,7 +33,7 @@ export default function Records() {
     const cohorts = useMemo(() => {
         const uniqueCohorts = [...new Set(students.map(s => s.Source_Sheet))];
         return ["All", ...uniqueCohorts];
-    }, [students]);  // ✅ Recompute when students change
+    }, [students]);
 
     // Filter students based on search and cohort
     const filteredStudents = useMemo(() => {
@@ -50,11 +50,11 @@ export default function Records() {
                 const college = (student.College || "").toLowerCase();
                 const program = (student.Program || "").toLowerCase();
                 const district = (student.District || "").toLowerCase();
-                
-                return name.includes(search) || 
-                       college.includes(search) || 
-                       program.includes(search) ||
-                       district.includes(search);
+
+                return name.includes(search) ||
+                    college.includes(search) ||
+                    program.includes(search) ||
+                    district.includes(search);
             }
 
             return true;
@@ -72,7 +72,7 @@ export default function Records() {
 
         // ✅ Use studentAPI instead of fetch
         const result = await studentAPI.deleteStudent(studentId);
-        
+
         if (result.success) {
             alert(`Student "${studentName}" deleted successfully!`);
             // ✅ Remove from state instead of reload
@@ -163,13 +163,7 @@ export default function Records() {
                                     >
                                         View
                                     </button>
-                                    <button 
-                                        className="btn-edit"
-                                        onClick={() => navigate(`/edit/${s.id}`)}
-                                    >
-                                        Edit
-                                    </button>
-                                    <button 
+                                    <button
                                         className="btn-delete-table"
                                         onClick={() => handleDelete(s.id, s.Full_Name)}
                                     >

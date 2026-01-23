@@ -35,16 +35,35 @@ const api = {
     refresh: () => ipcRenderer.invoke('excel:refresh'),
 
     // Import Excel file
-    import: (filePath) => ipcRenderer.invoke('excel:import', filePath)
+    import: (filePath) => ipcRenderer.invoke('excel:import', filePath),
+
+    // ✅ Participation methods
+    getParticipations: (studentId) => ipcRenderer.invoke('excel:getParticipations', studentId),
+    getParticipation: (id) => ipcRenderer.invoke('excel:getParticipation', id),
+    addParticipation: (participation) => ipcRenderer.invoke('excel:addParticipation', participation),
+    updateParticipation: (id, updates) => ipcRenderer.invoke('excel:updateParticipation', { id, updates }),
+    deleteParticipation: (id) => ipcRenderer.invoke('excel:deleteParticipation', id),
+    getAllParticipations: (params) => ipcRenderer.invoke('excel:getAllParticipations', params)
   },
 
   // Photo API
   photos: {
+    // Save photo
+    savePhoto: (data) => ipcRenderer.invoke('photos:save', data),  // ← ADD THIS
+
     // Get photo path for student
     getPhotoPath: (id) => ipcRenderer.invoke('photos:getPath', id),
 
     // Check if photo exists
-    photoExists: (id) => ipcRenderer.invoke('photos:exists', id)
+    photoExists: (id) => ipcRenderer.invoke('photos:exists', id),
+
+    // Delete photo
+    deletePhoto: (id) => ipcRenderer.invoke('photos:delete', id)  // ← ADD THIS
+  },
+
+  pdf: {
+    save: (htmlContent, defaultFileName) => 
+      ipcRenderer.invoke('save-pdf', { htmlContent, defaultFileName })
   }
 }
 

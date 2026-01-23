@@ -1,8 +1,9 @@
 /* eslint-disable prettier/prettier */
-import { ipcMain } from 'electron';
+import { ipcMain, BrowserWindow, dialog, shell } from 'electron';
 import XLSX from 'xlsx';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 
 // __dirname replacement for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -11,15 +12,45 @@ const __dirname = path.dirname(__filename);
 // Absolute path to Excel file
 const excelPath = path.resolve(__dirname, '../../data/students.xlsx');
 
+// Photo path
+const photosPath = path.resolve(__dirname, '../../data/photos');
+
+// Ensure photos directory exists
+if (!fs.existsSync(photosPath)) {
+    fs.mkdirSync(photosPath, { recursive: true });
+}
+
+// Cache for performance
+let cachedData = null;
+let lastModified = null;
+
 // --- Helpers ---
 
-// Read all sheets
+/**
+ * Check if cache is valid
+ */
+function isCacheValid() {
+    if (!cachedData || !lastModified) return false;
+
+    try {
+        const stats = fs.statSync(excelPath);
+        return stats.mtime.getTime() === lastModified;
+    } catch (err) {
+        return false;
+    }
+}
+
+/**
+ * Read all sheets
+ */
 function getSheets() {
     const workbook = XLSX.readFile(excelPath);
     return workbook.SheetNames;
 }
 
-// Read data from a sheet
+/**
+ * Read data from a specific sheet
+ */
 function getSheetData(sheetName) {
     const workbook = XLSX.readFile(excelPath);
     const sheet = workbook.Sheets[sheetName];
@@ -27,12 +58,56 @@ function getSheetData(sheetName) {
     return XLSX.utils.sheet_to_json(sheet);
 }
 
-// Get all students from Master_Database sheet
-function getAllStudents() {
-    return getSheetData('Master_Database'); // ✅ use Master_Database explicitly
+/**
+ * Get all students from Master_Database sheet with caching
+ */
+function getAllStudents(forceRefresh = false) {
+    if (!forceRefresh && isCacheValid()) {
+        console.log('📦 Using cached data');
+        return cachedData;
+    }
+
+    console.log('📖 Reading Excel file...');
+    const students = getSheetData('Master_Database');
+
+    // Update cache
+    cachedData = students;
+    const stats = fs.statSync(excelPath);
+    lastModified = stats.mtime.getTime();
+
+    console.log(`✅ Loaded ${students.length} students`);
+    return students;
 }
 
-// Apply search, pagination, and optional filters
+/**
+ * Write students back to Master_Database sheet
+ */
+function saveStudents(students) {
+    console.log('💾 Saving to Excel...');
+
+    // Read existing workbook
+    const workbook = XLSX.readFile(excelPath);
+
+    // Convert students to worksheet
+    const worksheet = XLSX.utils.json_to_sheet(students);
+
+    // Replace Master_Database sheet
+    workbook.Sheets['Master_Database'] = worksheet;
+
+    // Write file
+    XLSX.writeFile(workbook, excelPath);
+
+    // Update cache
+    cachedData = students;
+    const stats = fs.statSync(excelPath);
+    lastModified = stats.mtime.getTime();
+
+    console.log('✅ Saved successfully');
+}
+
+/**
+ * Apply search, pagination, and filters
+ */
 function filterStudents(students, { page = 1, limit = 100, search = '', filters = {} } = {}) {
     let filtered = [...students];
 
@@ -66,36 +141,663 @@ function filterStudents(students, { page = 1, limit = 100, search = '', filters 
     };
 }
 
+/**
+ * Calculate statistics
+ */
+function calculateStats(students) {
+    const stats = {
+        totalStudents: students.length,
+        byDistrict: {},
+        byCollege: {},
+        byProgram: {},
+        byYear: {},
+        bySource: {},
+        byCohort: {},
+        financialSummary: {
+            totalFees: 0,
+            totalScholarship: 0,
+            totalPaid: 0,
+            totalDue: 0
+        }
+    };
+
+    students.forEach(student => {
+        // Count by district
+        if (student.District) {
+            stats.byDistrict[student.District] = (stats.byDistrict[student.District] || 0) + 1;
+        }
+
+        // Count by college
+        if (student.College) {
+            stats.byCollege[student.College] = (stats.byCollege[student.College] || 0) + 1;
+        }
+
+        // Count by program
+        if (student.Program) {
+            stats.byProgram[student.Program] = (stats.byProgram[student.Program] || 0) + 1;
+        }
+
+        // Count by year
+        if (student.Current_Year) {
+            stats.byYear[student.Current_Year] = (stats.byYear[student.Current_Year] || 0) + 1;
+        }
+
+        // Count by source sheet
+        if (student.Source_Sheet) {
+            stats.bySource[student.Source_Sheet] = (stats.bySource[student.Source_Sheet] || 0) + 1;
+        }
+
+        // Count by cohort
+        if (student.Cohort) {
+            stats.byCohort[student.Cohort] = (stats.byCohort[student.Cohort] || 0) + 1;
+        }
+
+        // Financial summary
+        stats.financialSummary.totalFees += parseFloat(student.Total_College_Fee || 0);
+        stats.financialSummary.totalScholarship += parseFloat(student.Total_Scholarship_Amount || 0);
+        stats.financialSummary.totalPaid += parseFloat(student.Total_Amount_Paid || 0);
+        stats.financialSummary.totalDue += parseFloat(student.Total_Due || 0);
+    });
+
+    return stats;
+}
+
 // --- IPC Handlers ---
 
-// Get students for frontend
+/**
+ * Get all students with filters
+ */
 ipcMain.handle('excel:getStudents', (event, params) => {
     try {
-        const students = getAllStudents(); // Always from Master_Database
+        const students = getAllStudents();
         const result = filterStudents(students, params);
         return { success: true, ...result };
     } catch (err) {
+        console.error('Error getting students:', err);
         return { success: false, error: err.message };
     }
 });
 
-// Get sheet names
+/**
+ * Get single student by ID
+ */
+ipcMain.handle('excel:getStudent', (event, id) => {
+    try {
+        const students = getAllStudents();
+        const student = students.find(s => s.id === id);
+
+        if (!student) {
+            return { success: false, error: `Student with ID ${id} not found` };
+        }
+
+        return { success: true, data: student };
+    } catch (err) {
+        console.error('Error getting student:', err);
+        return { success: false, error: err.message };
+    }
+});
+
+/**
+ * Add new student
+ */
+ipcMain.handle('excel:addStudent', (event, studentData) => {
+    try {
+        const students = getAllStudents();
+
+        // Generate new ID (next sequential number)
+        const maxId = students.reduce((max, s) => Math.max(max, s.id || 0), 0);
+        const newId = maxId + 1;
+
+        // Create new student with ID and timestamp
+        const newStudent = {
+            id: newId,
+            ...studentData,
+            Last_Updated: new Date().toISOString()
+        };
+
+        // Add to array
+        students.push(newStudent);
+
+        // Save to Excel
+        saveStudents(students);
+
+        console.log(`✅ Added student: ${newStudent.Full_Name} (ID: ${newId})`);
+
+        return {
+            success: true,
+            data: newStudent,
+            message: `Student "${newStudent.Full_Name}" added successfully`
+        };
+    } catch (err) {
+        console.error('Error adding student:', err);
+        return { success: false, error: err.message };
+    }
+});
+
+/**
+ * Update existing student
+ */
+ipcMain.handle('excel:updateStudent', (event, { id, updates }) => {
+    try {
+        const students = getAllStudents();
+        const index = students.findIndex(s => s.id === id);
+
+        if (index === -1) {
+            return { success: false, error: `Student with ID ${id} not found` };
+        }
+
+        // Update student
+        students[index] = {
+            ...students[index],
+            ...updates,
+            id: students[index].id, // Preserve original ID
+            Last_Updated: new Date().toISOString()
+        };
+
+        // Save to Excel
+        saveStudents(students);
+
+        console.log(`✅ Updated student: ${students[index].Full_Name} (ID: ${id})`);
+
+        return {
+            success: true,
+            data: students[index],
+            message: `Student "${students[index].Full_Name}" updated successfully`
+        };
+    } catch (err) {
+        console.error('Error updating student:', err);
+        return { success: false, error: err.message };
+    }
+});
+
+/**
+ * Delete student
+ */
+ipcMain.handle('excel:deleteStudent', (event, id) => {
+    try {
+        const students = getAllStudents();
+        const index = students.findIndex(s => s.id === id);
+
+        if (index === -1) {
+            return { success: false, error: `Student with ID ${id} not found` };
+        }
+
+        const deletedStudent = students[index];
+
+        // Remove student
+        students.splice(index, 1);
+
+        // Save to Excel
+        saveStudents(students);
+
+        console.log(`✅ Deleted student: ${deletedStudent.Full_Name} (ID: ${id})`);
+
+        return {
+            success: true,
+            message: `Student "${deletedStudent.Full_Name}" deleted successfully`
+        };
+    } catch (err) {
+        console.error('Error deleting student:', err);
+        return { success: false, error: err.message };
+    }
+});
+
+/**
+ * Get dashboard statistics
+ */
+ipcMain.handle('excel:getStats', () => {
+    try {
+        const students = getAllStudents();
+        const stats = calculateStats(students);
+
+        return {
+            success: true,
+            stats,
+            fileInfo: {
+                lastModified: new Date(lastModified).toISOString(),
+                totalStudents: students.length
+            }
+        };
+    } catch (err) {
+        console.error('Error getting stats:', err);
+        return { success: false, error: err.message };
+    }
+});
+
+/**
+ * Refresh data from Excel
+ */
+ipcMain.handle('excel:refresh', () => {
+    try {
+        const students = getAllStudents(true); // Force refresh
+
+        return {
+            success: true,
+            message: 'Data refreshed successfully',
+            stats: {
+                totalStudents: students.length
+            }
+        };
+    } catch (err) {
+        console.error('Error refreshing data:', err);
+        return { success: false, error: err.message };
+    }
+});
+
+/**
+ * Get all sheet names
+ */
 ipcMain.handle('excel:getSheets', () => {
     try {
         const sheets = getSheets();
         return { success: true, sheets };
     } catch (err) {
+        console.error('Error getting sheets:', err);
         return { success: false, error: err.message };
     }
 });
 
-// Get data from any sheet with optional pagination/search
+/**
+ * Get data from any sheet with optional pagination/search
+ */
 ipcMain.handle('excel:getSheetData', (event, { sheetName, page, limit, search }) => {
     try {
         const data = getSheetData(sheetName);
         const result = filterStudents(data, { page, limit, search });
-        return { success: true, ...result };
+        return { success: true, sheetName, ...result };
+    } catch (err) {
+        console.error('Error getting sheet data:', err);
+        return { success: false, error: err.message };
+    }
+});
+
+/**
+ * Save student photo
+ */
+ipcMain.handle('photos:save', async (event, { id, photoData, extension }) => {
+    try {
+        // Delete old photo if exists (might have different extension)
+        const extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+        for (const ext of extensions) {
+            const oldPhotoPath = path.join(photosPath, `${id}.${ext}`);
+            if (fs.existsSync(oldPhotoPath)) {
+                fs.unlinkSync(oldPhotoPath);
+                console.log(`🗑️ Deleted old photo: ${oldPhotoPath}`);
+            }
+        }
+
+        // Save new photo
+        const buffer = Buffer.from(photoData, 'base64');
+        const photoPath = path.join(photosPath, `${id}.${extension}`);
+
+        fs.writeFileSync(photoPath, buffer);
+
+        console.log(`✅ Saved photo for student ID ${id}: ${photoPath}`);
+
+        return {
+            success: true,
+            message: 'Photo saved successfully',
+            path: `atom://${photoPath}`  // ✅ Changed to atom://
+        };
+    } catch (err) {
+        console.error('Error saving photo:', err);
+        return { success: false, error: err.message };
+    }
+});
+
+/**
+ * Check if photo exists
+ */
+ipcMain.handle('photos:exists', async (event, id) => {
+    try {
+        const extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+
+        for (const ext of extensions) {
+            const photoPath = path.join(photosPath, `${id}.${ext}`);
+            if (fs.existsSync(photoPath)) {
+                return {
+                    success: true,
+                    exists: true,
+                    path: `atom://${photoPath}`  // ✅ Changed to atom://
+                };
+            }
+        }
+
+        return { success: true, exists: false };
     } catch (err) {
         return { success: false, error: err.message };
     }
 });
+
+/**
+ * Get photo path
+ */
+ipcMain.handle('photos:getPath', async (event, id) => {
+    try {
+        const extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+
+        for (const ext of extensions) {
+            const photoPath = path.join(photosPath, `${id}.${ext}`);
+
+            if (fs.existsSync(photoPath)) {
+                // Normalize the path - resolve removes double slashes and normalizes
+                const normalizedPath = path.resolve(photoPath);
+
+                console.log('📸 Original path:', photoPath);
+                console.log('📸 Normalized path:', normalizedPath);
+                console.log('📸 atom:// URL:', `atom://${normalizedPath}`);
+
+                return {
+                    success: true,
+                    path: `atom://${normalizedPath}`
+                };
+            }
+        }
+
+        console.log('❌ No photo found for student ID:', id);
+        return { success: false, path: null };
+    } catch (err) {
+        console.error('Error getting photo path:', err);
+        return { success: false, error: err.message, path: null };
+    }
+});
+
+/**
+ * Delete student photo
+ */
+ipcMain.handle('photos:delete', async (event, id) => {
+    try {
+        const extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+        let deleted = false;
+
+        for (const ext of extensions) {
+            const photoPath = path.join(photosPath, `${id}.${ext}`);
+            if (fs.existsSync(photoPath)) {
+                fs.unlinkSync(photoPath);
+                deleted = true;
+                console.log(`✅ Deleted photo for student ID ${id}`);
+            }
+        }
+
+        if (deleted) {
+            return { success: true, message: 'Photo deleted successfully' };
+        } else {
+            return { success: false, error: 'No photo found to delete' };
+        }
+    } catch (err) {
+        console.error('Error deleting photo:', err);
+        return { success: false, error: err.message };
+    }
+});
+
+// ============================================
+// PARTICIPATION HANDLERS
+// ============================================
+
+/**
+ * Get all participations for a student
+ */
+ipcMain.handle('excel:getParticipations', (event, studentId) => {
+    try {
+        const participations = getSheetData('Participations');
+        const studentParticipations = participations.filter(p => p.student_id === studentId);
+
+        // Sort by date descending (newest first)
+        studentParticipations.sort((a, b) =>
+            new Date(b.event_date) - new Date(a.event_date)
+        );
+
+        console.log(`📋 Found ${studentParticipations.length} participations for student ${studentId}`);
+
+        return {
+            success: true,
+            data: studentParticipations
+        };
+    } catch (err) {
+        console.error('Error getting participations:', err);
+        return { success: false, error: err.message, data: [] };
+    }
+});
+
+/**
+ * Get single participation by ID
+ */
+ipcMain.handle('excel:getParticipation', (event, id) => {
+    try {
+        const participations = getSheetData('Participations');
+        const participation = participations.find(p => p.participation_id === id);
+
+        if (!participation) {
+            return { success: false, error: 'Participation not found' };
+        }
+
+        return { success: true, data: participation };
+    } catch (err) {
+        console.error('Error getting participation:', err);
+        return { success: false, error: err.message };
+    }
+});
+
+/**
+ * Add new participation
+ */
+ipcMain.handle('excel:addParticipation', (event, participationData) => {
+    try {
+        console.log('📝 Adding participation:', participationData);
+
+        // Read current participations
+        const workbook = XLSX.readFile(excelPath);
+
+        // Check if Participations sheet exists
+        if (!workbook.SheetNames.includes('Participations')) {
+            // Create new sheet if it doesn't exist
+            const newSheet = XLSX.utils.json_to_sheet([]);
+            workbook.Sheets['Participations'] = newSheet;
+            workbook.SheetNames.push('Participations');
+        }
+
+        const participations = getSheetData('Participations');
+
+        // Generate new ID
+        const maxId = participations.reduce((max, p) => Math.max(max, p.participation_id || 0), 0);
+        const newId = maxId + 1;
+
+        // Create new participation
+        const newParticipation = {
+            participation_id: newId,
+            student_id: participationData.student_id,
+            event_name: participationData.event_name || '',
+            event_date: participationData.event_date || '',
+            event_type: participationData.event_type || 'Workshop',
+            role: participationData.role || 'Participant',
+            hours: participationData.hours || 0,
+            notes: participationData.notes || '',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        };
+
+        // Add to array
+        participations.push(newParticipation);
+
+        // Convert to worksheet and save
+        const worksheet = XLSX.utils.json_to_sheet(participations);
+        workbook.Sheets['Participations'] = worksheet;
+        XLSX.writeFile(workbook, excelPath);
+
+        console.log(`✅ Added participation ID ${newId} for student ${participationData.student_id}`);
+
+        return {
+            success: true,
+            data: newParticipation,
+            message: 'Participation added successfully'
+        };
+    } catch (err) {
+        console.error('Error adding participation:', err);
+        return { success: false, error: err.message };
+    }
+});
+
+/**
+ * Update participation
+ */
+ipcMain.handle('excel:updateParticipation', (event, { id, updates }) => {
+    try {
+        console.log(`📝 Updating participation ${id}:`, updates);
+
+        const workbook = XLSX.readFile(excelPath);
+        const participations = getSheetData('Participations');
+        const index = participations.findIndex(p => p.participation_id === id);
+
+        if (index === -1) {
+            return { success: false, error: `Participation with ID ${id} not found` };
+        }
+
+        // Update participation
+        participations[index] = {
+            ...participations[index],
+            ...updates,
+            participation_id: participations[index].participation_id, // Preserve ID
+            student_id: participations[index].student_id, // Preserve student_id
+            updated_at: new Date().toISOString()
+        };
+
+        // Save back to Excel
+        const worksheet = XLSX.utils.json_to_sheet(participations);
+        workbook.Sheets['Participations'] = worksheet;
+        XLSX.writeFile(workbook, excelPath);
+
+        console.log(`✅ Updated participation ID ${id}`);
+
+        return {
+            success: true,
+            data: participations[index],
+            message: 'Participation updated successfully'
+        };
+    } catch (err) {
+        console.error('Error updating participation:', err);
+        return { success: false, error: err.message };
+    }
+});
+
+/**
+ * Delete participation
+ */
+ipcMain.handle('excel:deleteParticipation', (event, id) => {
+    try {
+        console.log(`🗑️ Deleting participation ${id}`);
+
+        const workbook = XLSX.readFile(excelPath);
+        const participations = getSheetData('Participations');
+        const index = participations.findIndex(p => p.participation_id === id);
+
+        if (index === -1) {
+            return { success: false, error: `Participation with ID ${id} not found` };
+        }
+
+        const deletedParticipation = participations[index];
+
+        // Remove participation
+        participations.splice(index, 1);
+
+        // Save back to Excel
+        const worksheet = XLSX.utils.json_to_sheet(participations);
+        workbook.Sheets['Participations'] = worksheet;
+        XLSX.writeFile(workbook, excelPath);
+
+        console.log(`✅ Deleted participation ID ${id}`);
+
+        return {
+            success: true,
+            message: `Participation "${deletedParticipation.event_name}" deleted successfully`
+        };
+    } catch (err) {
+        console.error('Error deleting participation:', err);
+        return { success: false, error: err.message };
+    }
+});
+
+/**
+ * Get all participations (for reports/analytics)
+ */
+ipcMain.handle('excel:getAllParticipations', (event, params = {}) => {
+    try {
+        const participations = getSheetData('Participations');
+        const result = filterStudents(participations, params);
+        return { success: true, ...result };
+    } catch (err) {
+        console.error('Error getting all participations:', err);
+        return { success: false, error: err.message };
+    }
+});
+
+// Save PDF handler
+ipcMain.handle('save-pdf', async (event, { htmlContent, defaultFileName, openAfterSave = true }) => {
+    try {
+        // Show save dialog
+        const { filePath, canceled } = await dialog.showSaveDialog({
+            title: 'Save PDF',
+            defaultPath: defaultFileName || 'student-profile.pdf',
+            filters: [{ name: 'PDF Files', extensions: ['pdf'] }]
+        });
+
+        if (canceled || !filePath) {
+            return { success: false, canceled: true };
+        }
+
+        // Hidden window for PDF generation
+        const pdfWindow = new BrowserWindow({
+            show: false,
+            webPreferences: {
+                nodeIntegration: false,
+                sandbox: true
+            }
+        });
+
+        // Load HTML
+        await pdfWindow.loadURL(
+            `data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`
+        );
+
+        // Ensure rendering is complete
+        await new Promise(resolve => setTimeout(resolve, 800));
+
+        // Generate PDF
+        const pdfData = await pdfWindow.webContents.printToPDF({
+            printBackground: true,
+            pageSize: 'A4',
+            margins: {
+                top: 0.5,
+                bottom: 0.5,
+                left: 0.5,
+                right: 0.5
+            }
+        });
+
+        // Save file
+        fs.writeFileSync(filePath, pdfData);
+
+        pdfWindow.destroy();
+
+        console.log(`✅ PDF saved: ${filePath}`);
+
+        // 🔥 AUTO-OPEN PDF
+        if (openAfterSave) {
+            await shell.openPath(filePath);
+        }
+
+        return {
+            success: true,
+            filePath
+        };
+    } catch (error) {
+        console.error('❌ Error saving PDF:', error);
+        return {
+            success: false,
+            error: error.message
+        };
+    }
+});
+
+
+console.log('✅ Excel Service initialized');
+console.log(`📁 Excel path: ${excelPath}`);
