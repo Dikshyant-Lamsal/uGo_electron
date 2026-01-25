@@ -1796,3 +1796,33 @@ body {
     font-size: 11px;
   }
 }
+
+.file-select-button {
+    padding: 12px 24px;
+    background-color: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+
+.file-select-button:hover:not(:disabled) {
+    background-color: #2563eb;
+}
+
+.file-select-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.selected-file {
+    margin-top: 12px;
+    padding: 8px 12px;
+    background-color: #ecfdf5;
+    border-left: 4px solid #10b981;
+    color: #047857;
+    font-size: 14px;
+}

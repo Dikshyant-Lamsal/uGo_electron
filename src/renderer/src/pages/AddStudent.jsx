@@ -9,6 +9,13 @@ function AddStudent() {
     const [photoFile, setPhotoFile] = useState(null);
     const [photoPreview, setPhotoPreview] = useState(null);
 
+    const handleBack = () => {
+        navigate('/records', {
+            state: { fromAddStudent: true }
+        });
+    };
+
+
     const [formData, setFormData] = useState({
         Full_Name: "",
         District: "",
@@ -198,7 +205,7 @@ function AddStudent() {
     return (
         <div className="add-student-page">
             <Header />
-            <button className="btn-back" onClick={() => navigate(-1)}>
+            <button className="btn-back" onClick={handleBack}>
                 ← Back
             </button>
             <div className="add-student-container">
@@ -306,7 +313,7 @@ function AddStudent() {
                         <button
                             type="button"
                             className="btn-cancel"
-                            onClick={() => navigate(-1)}
+                            onClick={handleBack}
                         >
                             Cancel
                         </button>

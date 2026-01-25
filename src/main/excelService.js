@@ -804,23 +804,23 @@ ipcMain.handle('save-pdf', async (event, { htmlContent, defaultFileName, openAft
 ipcMain.handle('excel:importFile', async (event, { filePath, sourceSheet }) => {
     try {
         console.log('📥 Importing from:', filePath);
-        
+
         // Read uploaded Excel file
         const workbook = XLSX.readFile(filePath);
-        
+
         // Get first sheet or specified sheet
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         const importedData = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
-        
+
         console.log(`📊 Found ${importedData.length} students to import`);
-        
+
         // Get current students
         const currentStudents = getAllStudents();
-        
+
         // Find max ID
         const maxId = currentStudents.reduce((max, s) => Math.max(max, s.id || 0), 0);
-        
+
         // Process imported students
         const newStudents = importedData.map((student, index) => {
             return {
@@ -866,15 +866,15 @@ ipcMain.handle('excel:importFile', async (event, { filePath, sourceSheet }) => {
                 Last_Updated: new Date().toISOString()
             };
         });
-        
+
         // Merge with existing students
         const mergedStudents = [...currentStudents, ...newStudents];
-        
+
         // Save to Excel
         saveStudents(mergedStudents);
-        
+
         console.log(`✅ Imported ${newStudents.length} new students`);
-        
+
         return {
             success: true,
             message: `Successfully imported ${newStudents.length} students`,
@@ -884,6 +884,28 @@ ipcMain.handle('excel:importFile', async (event, { filePath, sourceSheet }) => {
     } catch (err) {
         console.error('Error importing file:', err);
         return { success: false, error: err.message };
+    }
+});
+
+
+ipcMain.handle('excel:getPath', async () => {
+    const result = await dialog.showOpenDialog({
+        properties: ['openFile'],
+        filters: [{ name: 'Excel Files', extensions: ['xlsx', 'xls'] }]
+    });
+
+    if (result.canceled || result.filePaths.length === 0) {
+        return null;
+    }
+
+    return result.filePaths[0]; // absolute file path
+});
+
+ipcMain.on('devtools-refresh', (event) => {
+    const win = BrowserWindow.getFocusedWindow();
+    if (win) {
+        win.webContents.openDevTools({ mode: 'detach' });
+        setTimeout(() => win.webContents.closeDevTools(), 100);
     }
 });
 

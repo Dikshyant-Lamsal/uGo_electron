@@ -1,34 +1,123 @@
 /* eslint-disable prettier/prettier */
-import { useState, useEffect, useMemo } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import studentAPI from "../api/studentApi";
 
 export default function Records() {
     const navigate = useNavigate();
+    const location = useLocation();
     const [searchParams, setSearchParams] = useSearchParams();
 
+    const scrollPositionRef = useRef(0);
+    const searchInputRef = useRef(null);
     const [students, setStudents] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [isUpdating, setIsUpdating] = useState(false);
 
-    // ✅ Initialize state from URL params
-    const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || "");
+    const [searchTerm, setSearchTerm] = useState("");
     const [filters, setFilters] = useState({
-        cohorts: searchParams.get('cohorts')?.split(',').filter(Boolean) || [],
-        programs: searchParams.get('programs')?.split(',').filter(Boolean) || [],
-        colleges: searchParams.get('colleges')?.split(',').filter(Boolean) || [],
-        years: searchParams.get('years')?.split(',').filter(Boolean) || [],
-        districts: searchParams.get('districts')?.split(',').filter(Boolean) || []
+        cohorts: [],
+        programs: [],
+        colleges: [],
+        years: [],
+        districts: []
     });
     const [sortConfig, setSortConfig] = useState({
-        key: searchParams.get('sortKey') || 'Full_Name',
-        direction: searchParams.get('sortDir') || 'asc'
+        key: 'Full_Name',
+        direction: 'asc'
     });
-    const [showFilters, setShowFilters] = useState(searchParams.get('showFilters') === 'true');
+    const [showFilters, setShowFilters] = useState(false);
 
-    // ✅ Sync state with URL params
+    const hasInitializedFromURL = useRef(false);
+    const lastRefreshTimestamp = useRef(null);
+
+
+    // Fetch students
     useEffect(() => {
+        const refreshTimestamp = location.state?.refresh;
+        if (refreshTimestamp && refreshTimestamp === lastRefreshTimestamp.current) return;
+
+        const fetchStudents = async () => {
+            setLoading(true);
+            const result = await studentAPI.getStudents({ page: 1, limit: 500 });
+
+            if (result.success) {
+                setStudents(result.data);
+                if (refreshTimestamp) lastRefreshTimestamp.current = refreshTimestamp;
+            } else {
+                console.error('Failed to fetch students:', result.error);
+                alert('Failed to load students: ' + result.error);
+            }
+            setLoading(false);
+        };
+
+        fetchStudents();
+    }, [location.state?.refresh]);
+
+    // Ensure input stays enabled
+    useEffect(() => {
+        if (!loading && !isUpdating && searchInputRef.current) {
+            searchInputRef.current.disabled = false;
+            searchInputRef.current.readOnly = false;
+        }
+    }, [loading, isUpdating, students]);
+
+    // Restore state from URL params
+    useEffect(() => {
+        if (loading || hasInitializedFromURL.current) return;
+
+        const urlSearch = searchParams.get('search');
+        const urlCohorts = searchParams.get('cohorts')?.split(',').filter(Boolean);
+        const urlPrograms = searchParams.get('programs')?.split(',').filter(Boolean);
+        const urlColleges = searchParams.get('colleges')?.split(',').filter(Boolean);
+        const urlYears = searchParams.get('years')?.split(',').filter(Boolean);
+        const urlDistricts = searchParams.get('districts')?.split(',').filter(Boolean);
+        const urlSortKey = searchParams.get('sortKey');
+        const urlSortDir = searchParams.get('sortDir');
+        const urlShowFilters = searchParams.get('showFilters');
+
+        if (urlSearch) setSearchTerm(urlSearch);
+        if (urlCohorts?.length) setFilters(prev => ({ ...prev, cohorts: urlCohorts }));
+        if (urlPrograms?.length) setFilters(prev => ({ ...prev, programs: urlPrograms }));
+        if (urlColleges?.length) setFilters(prev => ({ ...prev, colleges: urlColleges }));
+        if (urlYears?.length) setFilters(prev => ({ ...prev, years: urlYears }));
+        if (urlDistricts?.length) setFilters(prev => ({ ...prev, districts: urlDistricts }));
+        if (urlSortKey) setSortConfig(prev => ({ ...prev, key: urlSortKey }));
+        if (urlSortDir) setSortConfig(prev => ({ ...prev, direction: urlSortDir }));
+        if (urlShowFilters === 'true') setShowFilters(true);
+
+        hasInitializedFromURL.current = true;
+    }, [loading]);
+
+    // Save scroll position
+    useEffect(() => {
+        const handleScroll = () => {
+            scrollPositionRef.current = window.scrollY;
+        };
+        window.addEventListener('scroll', handleScroll);
+        return () => {
+            window.removeEventListener('scroll', handleScroll);
+            sessionStorage.setItem('recordsScrollPosition', scrollPositionRef.current.toString());
+        };
+    }, []);
+
+    // Restore scroll position
+    useEffect(() => {
+        if (!loading && location.state?.fromStudentDetail) {
+            const savedScrollPosition = sessionStorage.getItem('recordsScrollPosition');
+            if (savedScrollPosition) {
+                setTimeout(() => {
+                    window.scrollTo(0, parseInt(savedScrollPosition, 10));
+                }, 50);
+            }
+        }
+    }, [loading, location.state]);
+
+    // Sync state to URL params
+    useEffect(() => {
+        if (!hasInitializedFromURL.current) return;
+
         const params = new URLSearchParams();
-        
         if (searchTerm) params.set('search', searchTerm);
         if (filters.cohorts.length) params.set('cohorts', filters.cohorts.join(','));
         if (filters.programs.length) params.set('programs', filters.programs.join(','));
@@ -40,34 +129,16 @@ export default function Records() {
         if (showFilters) params.set('showFilters', 'true');
 
         setSearchParams(params, { replace: true });
-    }, [searchTerm, filters, sortConfig, showFilters]);
+    }, [searchTerm, filters, sortConfig, showFilters, setSearchParams]);
 
-    useEffect(() => {
-        const fetchStudents = async () => {
-            setLoading(true);
-            const result = await studentAPI.getStudents({ page: 1, limit: 500 });
-
-            if (result.success) {
-                setStudents(result.data);
-            } else {
-                console.error('Failed to fetch students:', result.error);
-                alert('Failed to load students: ' + result.error);
-            }
-            setLoading(false);
-        };
-
-        fetchStudents();
-    }, []);
-
-    const filterOptions = useMemo(() => {
-        return {
-            cohorts: [...new Set(students.map(s => s.Source_Sheet).filter(Boolean))].sort(),
-            programs: [...new Set(students.map(s => s.Program).filter(Boolean))].sort(),
-            colleges: [...new Set(students.map(s => s.College).filter(Boolean))].sort(),
-            years: [...new Set(students.map(s => s.Current_Year).filter(Boolean))].sort(),
-            districts: [...new Set(students.map(s => s.District).filter(Boolean))].sort()
-        };
-    }, [students]);
+    // Filter options
+    const filterOptions = useMemo(() => ({
+        cohorts: [...new Set(students.map(s => s.Source_Sheet).filter(Boolean))].sort(),
+        programs: [...new Set(students.map(s => s.Program).filter(Boolean))].sort(),
+        colleges: [...new Set(students.map(s => s.College).filter(Boolean))].sort(),
+        years: [...new Set(students.map(s => s.Current_Year).filter(Boolean))].sort(),
+        districts: [...new Set(students.map(s => s.District).filter(Boolean))].sort()
+    }), [students]);
 
     const toggleFilter = (filterType, value) => {
         setFilters(prev => {
@@ -75,22 +146,12 @@ export default function Records() {
             const newValues = currentValues.includes(value)
                 ? currentValues.filter(v => v !== value)
                 : [...currentValues, value];
-            
-            return {
-                ...prev,
-                [filterType]: newValues
-            };
+            return { ...prev, [filterType]: newValues };
         });
     };
 
     const clearAllFilters = () => {
-        setFilters({
-            cohorts: [],
-            programs: [],
-            colleges: [],
-            years: [],
-            districts: []
-        });
+        setFilters({ cohorts: [], programs: [], colleges: [], years: [], districts: [] });
         setSearchTerm("");
     };
 
@@ -103,37 +164,20 @@ export default function Records() {
 
     const filteredAndSortedStudents = useMemo(() => {
         let filtered = students.filter(student => {
-            if (filters.cohorts.length > 0 && !filters.cohorts.includes(student.Source_Sheet)) {
-                return false;
-            }
-            if (filters.programs.length > 0 && !filters.programs.includes(student.Program)) {
-                return false;
-            }
-            if (filters.colleges.length > 0 && !filters.colleges.includes(student.College)) {
-                return false;
-            }
-            if (filters.years.length > 0 && !filters.years.includes(student.Current_Year)) {
-                return false;
-            }
-            if (filters.districts.length > 0 && !filters.districts.includes(student.District)) {
-                return false;
-            }
+            if (filters.cohorts.length && !filters.cohorts.includes(student.Source_Sheet)) return false;
+            if (filters.programs.length && !filters.programs.includes(student.Program)) return false;
+            if (filters.colleges.length && !filters.colleges.includes(student.College)) return false;
+            if (filters.years.length && !filters.years.includes(student.Current_Year)) return false;
+            if (filters.districts.length && !filters.districts.includes(student.District)) return false;
 
             if (searchTerm) {
-                const search = searchTerm.toLowerCase();
-                const name = (student.Full_Name || "").toLowerCase();
-                const college = (student.College || "").toLowerCase();
-                const program = (student.Program || "").toLowerCase();
-                const district = (student.District || "").toLowerCase();
-                const contact = (student.Contact_Number || "").toLowerCase();
-
-                return name.includes(search) ||
-                    college.includes(search) ||
-                    program.includes(search) ||
-                    district.includes(search) ||
-                    contact.includes(search);
+                const s = searchTerm.toLowerCase();
+                return (student.Full_Name || "").toLowerCase().includes(s) ||
+                    (student.College || "").toLowerCase().includes(s) ||
+                    (student.Program || "").toLowerCase().includes(s) ||
+                    (student.District || "").toLowerCase().includes(s) ||
+                    String(student.Contact_Number || "").toLowerCase().includes(s);
             }
-
             return true;
         });
 
@@ -141,7 +185,6 @@ export default function Records() {
             filtered.sort((a, b) => {
                 let aValue = a[sortConfig.key] || '';
                 let bValue = b[sortConfig.key] || '';
-
                 if (sortConfig.key.includes('GPA') || sortConfig.key.includes('Fee') || sortConfig.key.includes('Amount')) {
                     aValue = parseFloat(aValue) || 0;
                     bValue = parseFloat(bValue) || 0;
@@ -149,37 +192,32 @@ export default function Records() {
                     aValue = String(aValue).toLowerCase();
                     bValue = String(bValue).toLowerCase();
                 }
-
-                if (aValue < bValue) {
-                    return sortConfig.direction === 'asc' ? -1 : 1;
-                }
-                if (aValue > bValue) {
-                    return sortConfig.direction === 'asc' ? 1 : -1;
-                }
-                return 0;
+                return aValue < bValue ? (sortConfig.direction === 'asc' ? -1 : 1)
+                    : aValue > bValue ? (sortConfig.direction === 'asc' ? 1 : -1)
+                        : 0;
             });
         }
 
         return filtered;
     }, [students, searchTerm, filters, sortConfig]);
 
-    const handleDelete = async (studentId, studentName) => {
-        const confirmDelete = window.confirm(
-            `Are you sure you want to delete "${studentName}"?\n\nThis action cannot be undone.`
-        );
+    const handleDelete = async (id, name) => {
+        if (!window.confirm(`Are you sure you want to delete "${name}"?\nThis cannot be undone.`)) return;
 
-        if (!confirmDelete) {
-            return;
-        }
-
-        const result = await studentAPI.deleteStudent(studentId);
+        setIsUpdating(true);
+        const result = await studentAPI.deleteStudent(id);
 
         if (result.success) {
-            alert(`Student "${studentName}" deleted successfully!`);
-            setStudents(students.filter(s => s.id !== studentId));
+            alert(`Student "${name}" deleted!`);
+            setStudents(prev => prev.filter(s => s.id !== id));
         } else {
-            alert('Failed to delete student: ' + result.error);
+            alert('Delete failed: ' + result.error);
         }
+        setIsUpdating(false);
+    };
+
+    const handleViewStudent = (id) => {
+        navigate(`/records/${id}`, { state: { fromRecords: true } });
     };
 
     const activeFilterCount = Object.values(filters).reduce((sum, arr) => sum + arr.length, 0);
@@ -203,122 +241,58 @@ export default function Records() {
                 <div className="search-box">
                     <label className="search-label">🔍 Search Students</label>
                     <input
+                        ref={searchInputRef}
                         type="text"
                         className="search-input"
                         placeholder="Search by name, college, program, district, or contact..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
+                        autoComplete="off"
                     />
                 </div>
 
                 <div className="filter-header">
-                    <button 
+                    <button
                         className="btn-toggle-filters"
                         onClick={() => setShowFilters(!showFilters)}
                     >
                         {showFilters ? '▼' : '▶'} Filters {activeFilterCount > 0 && `(${activeFilterCount})`}
                     </button>
+
                     {activeFilterCount > 0 && (
-                        <button 
-                            className="btn-clear-filters"
-                            onClick={clearAllFilters}
-                        >
+                        <button className="btn-clear-filters" onClick={clearAllFilters}>
                             ✖ Clear All
                         </button>
                     )}
+
                 </div>
 
+                {/* Filters UI */}
                 {showFilters && (
                     <div className="advanced-filters">
-                        <div className="filter-group">
-                            <label className="filter-group-label">
-                                📚 Cohort {filters.cohorts.length > 0 && `(${filters.cohorts.length})`}
-                            </label>
-                            <div className="filter-checkboxes">
-                                {filterOptions.cohorts.map(cohort => (
-                                    <label key={cohort} className="checkbox-option">
-                                        <input
-                                            type="checkbox"
-                                            checked={filters.cohorts.includes(cohort)}
-                                            onChange={() => toggleFilter('cohorts', cohort)}
-                                        />
-                                        <span>{cohort}</span>
-                                    </label>
-                                ))}
+                        {['cohorts', 'programs', 'colleges', 'years', 'districts'].map(type => (
+                            <div className="filter-group" key={type}>
+                                <label className="filter-group-label">
+                                    {type === 'cohorts' ? '📚 Cohort' :
+                                        type === 'programs' ? '🎓 Program' :
+                                            type === 'colleges' ? '🏫 College' :
+                                                type === 'years' ? '📅 Year' : '📍 District'}
+                                    {filters[type].length > 0 && `(${filters[type].length})`}
+                                </label>
+                                <div className="filter-checkboxes">
+                                    {filterOptions[type].map(value => (
+                                        <label key={value} className="checkbox-option">
+                                            <input
+                                                type="checkbox"
+                                                checked={filters[type].includes(value)}
+                                                onChange={() => toggleFilter(type, value)}
+                                            />
+                                            <span>{value}</span>
+                                        </label>
+                                    ))}
+                                </div>
                             </div>
-                        </div>
-
-                        <div className="filter-group">
-                            <label className="filter-group-label">
-                                🎓 Program {filters.programs.length > 0 && `(${filters.programs.length})`}
-                            </label>
-                            <div className="filter-checkboxes">
-                                {filterOptions.programs.map(program => (
-                                    <label key={program} className="checkbox-option">
-                                        <input
-                                            type="checkbox"
-                                            checked={filters.programs.includes(program)}
-                                            onChange={() => toggleFilter('programs', program)}
-                                        />
-                                        <span>{program}</span>
-                                    </label>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="filter-group">
-                            <label className="filter-group-label">
-                                🏫 College {filters.colleges.length > 0 && `(${filters.colleges.length})`}
-                            </label>
-                            <div className="filter-checkboxes">
-                                {filterOptions.colleges.map(college => (
-                                    <label key={college} className="checkbox-option">
-                                        <input
-                                            type="checkbox"
-                                            checked={filters.colleges.includes(college)}
-                                            onChange={() => toggleFilter('colleges', college)}
-                                        />
-                                        <span>{college}</span>
-                                    </label>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="filter-group">
-                            <label className="filter-group-label">
-                                📅 Year {filters.years.length > 0 && `(${filters.years.length})`}
-                            </label>
-                            <div className="filter-checkboxes">
-                                {filterOptions.years.map(year => (
-                                    <label key={year} className="checkbox-option">
-                                        <input
-                                            type="checkbox"
-                                            checked={filters.years.includes(year)}
-                                            onChange={() => toggleFilter('years', year)}
-                                        />
-                                        <span>{year}</span>
-                                    </label>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="filter-group">
-                            <label className="filter-group-label">
-                                📍 District {filters.districts.length > 0 && `(${filters.districts.length})`}
-                            </label>
-                            <div className="filter-checkboxes">
-                                {filterOptions.districts.map(district => (
-                                    <label key={district} className="checkbox-option">
-                                        <input
-                                            type="checkbox"
-                                            checked={filters.districts.includes(district)}
-                                            onChange={() => toggleFilter('districts', district)}
-                                        />
-                                        <span>{district}</span>
-                                    </label>
-                                ))}
-                            </div>
-                        </div>
+                        ))}
                     </div>
                 )}
 
@@ -331,54 +305,42 @@ export default function Records() {
             <table className="records-table">
                 <thead>
                     <tr>
-                        <th onClick={() => handleSort('Full_Name')} className="sortable">
-                            Name {sortConfig.key === 'Full_Name' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                        </th>
-                        <th onClick={() => handleSort('Program')} className="sortable">
-                            Program {sortConfig.key === 'Program' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                        </th>
-                        <th onClick={() => handleSort('College')} className="sortable">
-                            College {sortConfig.key === 'College' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                        </th>
-                        <th onClick={() => handleSort('Current_Year')} className="sortable">
-                            Year {sortConfig.key === 'Current_Year' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                        </th>
-                        <th onClick={() => handleSort('District')} className="sortable">
-                            District {sortConfig.key === 'District' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                        </th>
+                        {['Full_Name', 'Program', 'College', 'Current_Year', 'District'].map(key => (
+                            <th key={key} onClick={() => handleSort(key)} className="sortable">
+                                {key === 'Full_Name' ? 'Name' :
+                                    key === 'Program' ? 'Program' :
+                                        key === 'College' ? 'College' :
+                                            key === 'Current_Year' ? 'Year' : 'District'}
+                                {sortConfig.key === key && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                            </th>
+                        ))}
                         <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {filteredAndSortedStudents.length > 0 ? (
-                        filteredAndSortedStudents.map((s) => (
-                            <tr key={s.id}>
-                                <td>{s.Full_Name}</td>
-                                <td>{s.Program}</td>
-                                <td>{s.College}</td>
-                                <td>{s.Current_Year}</td>
-                                <td>{s.District}</td>
-                                <td>
-                                    <button
-                                        className="btn-view"
-                                        onClick={() => navigate(`/records/${s.id}`)}
-                                    >
-                                        View
-                                    </button>
-                                    <button
-                                        className="btn-delete-table"
-                                        onClick={() => handleDelete(s.id, s.Full_Name)}
-                                    >
-                                        Delete
-                                    </button>
-                                </td>
-                            </tr>
-                        ))
-                    ) : (
+                    {filteredAndSortedStudents.length > 0 ? filteredAndSortedStudents.map(s => (
+                        <tr key={s.id}>
+                            <td>{s.Full_Name}</td>
+                            <td>{s.Program}</td>
+                            <td>{s.College}</td>
+                            <td>{s.Current_Year}</td>
+                            <td>{s.District}</td>
+                            <td>
+                                <button className="btn-view" onClick={() => handleViewStudent(s.id)}>View</button>
+                                <button
+                                    className="btn-delete-table"
+                                    onClick={() => handleDelete(s.id, s.Full_Name)}
+                                    disabled={isUpdating}
+                                >
+                                    Delete
+                                </button>
+                            </td>
+                        </tr>
+                    )) : (
                         <tr>
                             <td colSpan="6" style={{ textAlign: 'center', padding: '20px', color: 'var(--ev-c-text-3)' }}>
-                                {searchTerm || activeFilterCount > 0 
-                                    ? 'No students found matching your search criteria' 
+                                {searchTerm || activeFilterCount > 0
+                                    ? 'No students found matching your search criteria'
                                     : 'No students in database'}
                             </td>
                         </tr>

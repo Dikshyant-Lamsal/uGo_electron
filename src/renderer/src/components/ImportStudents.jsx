@@ -10,19 +10,22 @@ function ImportStudents() {
     const [sourceSheet, setSourceSheet] = useState('C1');
     const [importing, setImporting] = useState(false);
 
-    const handleFileSelect = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+    // ✅ FIXED: Opens the file dialog
+    const getFilePath = async () => {
+        try {
+            const filePath = await window.api.excel.getPath();
+            if (!filePath) return;
 
-        // Validate file type
-        if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
-            alert('Please select an Excel file (.xlsx or .xls)');
-            return;
+            setSelectedFile({
+                path: filePath,
+                name: filePath.split(/[\\/]/).pop()
+            });
+        } catch (error) {
+            alert('Error selecting file: ' + error.message);
         }
-
-        setSelectedFile(file);
     };
 
+    // ✅ FIXED: Single handleImport with proper navigation
     const handleImport = async () => {
         if (!selectedFile) {
             alert('Please select a file first');
@@ -36,14 +39,17 @@ function ImportStudents() {
         setImporting(true);
 
         try {
-            // Get file path (Electron provides this)
-            const filePath = selectedFile.path;
+            console.log('Importing from file:', selectedFile.path, 'Sheet:', sourceSheet);
 
-            const result = await studentAPI.importFile(filePath, sourceSheet);
+            const result = await studentAPI.importFile(selectedFile.path, sourceSheet);
 
             if (result.success) {
                 alert(`✅ Successfully imported ${result.imported} students!\n\nTotal students: ${result.total}`);
-                navigate('/records');
+
+                // ✅ Navigate back with refresh flag
+                navigate('/records', {
+                    state: { refresh: Date.now() }
+                });
             } else {
                 alert('Failed to import: ' + result.error);
             }
@@ -54,9 +60,20 @@ function ImportStudents() {
         }
     };
 
+    // ✅ FIXED: Proper back navigation
+    const handleBack = () => {
+        navigate('/records', {
+            state: { fromImport: true }
+        });
+    };
+
     return (
         <div className="import-page">
             <Header />
+            <button className="btn-back" onClick={handleBack}>
+                ← Back
+            </button>
+
             <div className="import-container">
                 <h1>📥 Import Students from Excel</h1>
 
@@ -65,7 +82,7 @@ function ImportStudents() {
                     <ol>
                         <li>Prepare your Excel file with student data</li>
                         <li>Make sure it has columns matching the required fields</li>
-                        <li>Select the file below</li>
+                        <li>Click "Browse" to select the file</li>
                         <li>Choose the source cohort</li>
                         <li>Click "Import Students"</li>
                     </ol>
@@ -74,12 +91,15 @@ function ImportStudents() {
                 <div className="import-form">
                     <div className="form-section">
                         <h3>1. Select Excel File</h3>
-                        <input
-                            type="file"
-                            accept=".xlsx,.xls"
-                            onChange={handleFileSelect}
-                            className="file-input"
-                        />
+
+                        <button
+                            onClick={getFilePath}
+                            className="file-select-button"
+                            disabled={importing}
+                        >
+                            📁 Browse for Excel File
+                        </button>
+
                         {selectedFile && (
                             <p className="selected-file">
                                 ✅ Selected: {selectedFile.name}
@@ -97,6 +117,7 @@ function ImportStudents() {
                                         value={cohort}
                                         checked={sourceSheet === cohort}
                                         onChange={(e) => setSourceSheet(e.target.value)}
+                                        disabled={importing}
                                     />
                                     <span>{cohort}</span>
                                 </label>
@@ -109,7 +130,7 @@ function ImportStudents() {
                         onClick={handleImport}
                         disabled={!selectedFile || importing}
                     >
-                        {importing ? 'Importing...' : '📥 Import Students'}
+                        {importing ? '⏳ Importing...' : '📥 Import Students'}
                     </button>
                 </div>
             </div>

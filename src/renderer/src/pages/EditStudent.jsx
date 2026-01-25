@@ -9,6 +9,11 @@ function EditStudent() {
     const navigate = useNavigate();
     const { id } = useParams();
 
+    const handleBack = () => {
+        navigate('/records', {
+            state: { fromStudentDetail: true }
+        });
+    };
     const [student, setStudent] = useState(null);
     const [loading, setLoading] = useState(true);
     const [photoFile, setPhotoFile] = useState(null);
@@ -297,7 +302,7 @@ function EditStudent() {
     return (
         <div className="add-student-page">
             <Header />
-            <button className="btn-back" onClick={() => navigate(-1)}>
+            <button className="btn-back" onClick={handleBack}>
                 ← Back
             </button>
             <div className="add-student-container">
