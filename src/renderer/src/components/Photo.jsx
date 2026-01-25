@@ -1,6 +1,7 @@
 /* eslint-disable prettier/prettier */
 import { useState, useEffect } from 'react';
 import studentAPI from '../api/studentApi';
+import icon from '../assets/logo/icon.png';
 
 function Photo({ studentId, studentName, editable = false, onPhotoChange }) {
     const [photoUrl, setPhotoUrl] = useState(null);
@@ -81,7 +82,7 @@ function Photo({ studentId, studentName, editable = false, onPhotoChange }) {
                 />
             ) : (
                 <div className="photo-placeholder">
-                    No photo available
+                    <img src={icon} alt={studentName} className="logo" />
                 </div>
             )}
 

@@ -297,7 +297,6 @@ export default function RecordView() {
 
     return (
         <div className="record-view">
-            <Header />
             <div className="record-view-header no-print">
                 <div className="header-actions-row">
                     <button className="btn-back" onClick={() => navigate(-1)}>

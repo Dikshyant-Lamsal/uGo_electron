@@ -1,13 +1,14 @@
 /* eslint-disable prettier/prettier */
 import { Link } from "react-router-dom";
 import icon from '../assets/logo/icon.png';
+import ThemeToggle from "./ThemeToggle";
 
 function Header() {
   return (
     <header className="app-header">
       <nav className="logo">
         <Link to="/home" className="logo-link">
-           <img src={icon} alt="ugo logo" className="logo-image" />
+          <img src={icon} alt="ugo logo" className="logo-image" />
           <span className="logo-text">uGo Nepal Student Management App</span>
         </Link>
       </nav>
@@ -21,6 +22,7 @@ function Header() {
         <div className="action">
           <Link to="/upload-file" className="action-btn">Upload File</Link>
         </div>
+        <ThemeToggle />
       </nav>
     </header>
   );
