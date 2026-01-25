@@ -37,6 +37,9 @@ const api = {
     // Import Excel file
     import: (filePath) => ipcRenderer.invoke('excel:import', filePath),
 
+    // Import file with details
+    importFile: (data) => ipcRenderer.invoke('excel:importFile', data),
+
     // ✅ Participation methods
     getParticipations: (studentId) => ipcRenderer.invoke('excel:getParticipations', studentId),
     getParticipation: (id) => ipcRenderer.invoke('excel:getParticipation', id),

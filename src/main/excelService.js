@@ -798,6 +798,95 @@ ipcMain.handle('save-pdf', async (event, { htmlContent, defaultFileName, openAft
     }
 });
 
+/**
+ * Import students from uploaded Excel file
+ */
+ipcMain.handle('excel:importFile', async (event, { filePath, sourceSheet }) => {
+    try {
+        console.log('📥 Importing from:', filePath);
+        
+        // Read uploaded Excel file
+        const workbook = XLSX.readFile(filePath);
+        
+        // Get first sheet or specified sheet
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const importedData = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+        
+        console.log(`📊 Found ${importedData.length} students to import`);
+        
+        // Get current students
+        const currentStudents = getAllStudents();
+        
+        // Find max ID
+        const maxId = currentStudents.reduce((max, s) => Math.max(max, s.id || 0), 0);
+        
+        // Process imported students
+        const newStudents = importedData.map((student, index) => {
+            return {
+                id: maxId + index + 1,
+                Full_Name: student.Full_Name || student['Full Name'] || '',
+                District: student.District || '',
+                Address: student.Address || '',
+                Contact_Number: student.Contact_Number || student['Contact Number'] || '',
+                Father_Name: student.Father_Name || student["Father's Name"] || '',
+                Father_Contact: student.Father_Contact || student["Father's Contact"] || '',
+                Mother_Name: student.Mother_Name || student["Mother's Name"] || '',
+                Mother_Contact: student.Mother_Contact || student["Mother's Contact"] || '',
+                Program: student.Program || '',
+                College: student.College || '',
+                Current_Year: student.Current_Year || student['Current Year'] || '',
+                Program_Structure: student.Program_Structure || student['Program Structure'] || '',
+                Scholarship_Type: student.Scholarship_Type || student['Scholarship Type'] || '',
+                Scholarship_Percentage: student.Scholarship_Percentage || student['Scholarship %'] || '',
+                Scholarship_Starting_Year: student.Scholarship_Starting_Year || student['Scholarship Starting Year'] || '',
+                Scholarship_Status: student.Scholarship_Status || student['Scholarship Status'] || '',
+                Total_College_Fee: student.Total_College_Fee || student['Total College Fee'] || '',
+                Total_Scholarship_Amount: student.Total_Scholarship_Amount || student['Total Scholarship Amount'] || '',
+                Total_Amount_Paid: student.Total_Amount_Paid || student['Total Amount Paid'] || '',
+                Total_Due: student.Total_Due || student['Total Due'] || '',
+                Books_Total: student.Books_Total || student['Books Total'] || '',
+                Uniform_Total: student.Uniform_Total || student['Uniform Total'] || '',
+                Year_1_Fee: student.Year_1_Fee || student['Year 1 Fee'] || '',
+                Year_1_Payment: student.Year_1_Payment || student['Year 1 Payment'] || '',
+                Year_2_Fee: student.Year_2_Fee || student['Year 2 Fee'] || '',
+                Year_2_Payment: student.Year_2_Payment || student['Year 2 Payment'] || '',
+                Year_3_Fee: student.Year_3_Fee || student['Year 3 Fee'] || '',
+                Year_3_Payment: student.Year_3_Payment || student['Year 3 Payment'] || '',
+                Year_4_Fee: student.Year_4_Fee || student['Year 4 Fee'] || '',
+                Year_4_Payment: student.Year_4_Payment || student['Year 4 Payment'] || '',
+                Year_1_GPA: student.Year_1_GPA || student['Year 1 GPA'] || '',
+                Year_2_GPA: student.Year_2_GPA || student['Year 2 GPA'] || '',
+                Year_3_GPA: student.Year_3_GPA || student['Year 3 GPA'] || '',
+                Year_4_GPA: student.Year_4_GPA || student['Year 4 GPA'] || '',
+                Overall_Status: student.Overall_Status || student['Overall Status'] || '',
+                Participation: student.Participation || '',
+                Remarks: student.Remarks || '',
+                Source_Sheet: sourceSheet || student.Source_Sheet || 'Imported',
+                Last_Updated: new Date().toISOString()
+            };
+        });
+        
+        // Merge with existing students
+        const mergedStudents = [...currentStudents, ...newStudents];
+        
+        // Save to Excel
+        saveStudents(mergedStudents);
+        
+        console.log(`✅ Imported ${newStudents.length} new students`);
+        
+        return {
+            success: true,
+            message: `Successfully imported ${newStudents.length} students`,
+            imported: newStudents.length,
+            total: mergedStudents.length
+        };
+    } catch (err) {
+        console.error('Error importing file:', err);
+        return { success: false, error: err.message };
+    }
+});
+
 
 console.log('✅ Excel Service initialized');
 console.log(`📁 Excel path: ${excelPath}`);

@@ -297,6 +297,9 @@ function EditStudent() {
     return (
         <div className="add-student-page">
             <Header />
+            <button className="btn-back" onClick={() => navigate(-1)}>
+                ← Back
+            </button>
             <div className="add-student-container">
                 <div className="add-student-header">
                     <h1 className="add-student-title">Edit Student</h1>

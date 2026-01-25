@@ -20,7 +20,7 @@ function Header() {
           <Link to="/add-student" className="action-btn">Add Student</Link>
         </div>
         <div className="action">
-          <Link to="/upload-file" className="action-btn">Upload File</Link>
+          <Link to="/import" className="action-btn">Import Excel</Link>
         </div>
         <ThemeToggle />
       </nav>

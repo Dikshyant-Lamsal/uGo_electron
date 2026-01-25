@@ -309,6 +309,20 @@ class StudentAPI {
             return { success: false, error: error.message };
         }
     }
+    /**
+ * Import students from Excel file
+ * @param {string} filePath - Path to Excel file
+ * @param {string} sourceSheet - Source cohort name
+ */
+    async importFile(filePath, sourceSheet) {
+        try {
+            const result = await window.api.excel.importFile({ filePath, sourceSheet });
+            return result;
+        } catch (error) {
+            console.error('Error importing file:', error);
+            return { success: false, error: error.message };
+        }
+    }
 
     // ============================================
     // PDF OPERATIONS

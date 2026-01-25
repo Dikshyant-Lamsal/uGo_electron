@@ -103,7 +103,7 @@ function AddStudent() {
             }
 
             alert(`Student "${formData.Full_Name}" added successfully!`);
-            
+
             // ✅ Option: Navigate to edit page so they can add participations
             if (window.confirm('Would you like to add participations for this student now?')) {
                 navigate(`/records/${newStudent.id}/edit`);
@@ -198,6 +198,9 @@ function AddStudent() {
     return (
         <div className="add-student-page">
             <Header />
+            <button className="btn-back" onClick={() => navigate(-1)}>
+                ← Back
+            </button>
             <div className="add-student-container">
                 <div className="add-student-header">
                     <h1 className="add-student-title">Add New Student</h1>
