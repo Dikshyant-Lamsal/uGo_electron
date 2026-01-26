@@ -1,5 +1,5 @@
 /* eslint-disable prettier/prettier */
-import { ipcMain, BrowserWindow, dialog, shell } from 'electron';
+import { ipcMain, BrowserWindow, dialog, shell, app } from 'electron';
 import XLSX from 'xlsx';
 import path from 'path';
 import { fileURLToPath } from 'url';

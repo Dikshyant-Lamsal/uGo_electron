@@ -13,7 +13,7 @@ class StudentAPI {
      */
     async getStudents(params = {}) {
         try {
-            const result = await window.api.excel.getStudents(params);
+            const result = await globalThis.api.excel.getStudents(params);
             return result;
         } catch (error) {
             console.error('Error fetching students:', error);
@@ -28,7 +28,7 @@ class StudentAPI {
      */
     async getStudent(id) {
         try {
-            const result = await window.api.excel.getStudent(id);
+            const result = await globalThis.api.excel.getStudent(id);
             return result;
         } catch (error) {
             console.error('Error fetching student:', error);
@@ -43,7 +43,7 @@ class StudentAPI {
      */
     async addStudent(studentData) {
         try {
-            const result = await window.api.excel.addStudent(studentData);
+            const result = await globalThis.api.excel.addStudent(studentData);
             return result;
         } catch (error) {
             console.error('Error adding student:', error);
@@ -88,7 +88,7 @@ class StudentAPI {
      */
     async getStats() {
         try {
-            const result = await window.api.excel.getStats();
+            const result = await globalThis.api.excel.getStats();
             return result;
         } catch (error) {
             console.error('Error fetching stats:', error);
@@ -155,7 +155,7 @@ class StudentAPI {
                     const base64Data = reader.result.split(',')[1]; // Remove data:image/jpeg;base64,
                     const extension = file.name.split('.').pop().toLowerCase();
 
-                    const result = await window.api.photos.savePhoto({
+                    const result = await globalThis.api.photos.savePhoto({
                         id,
                         photoData: base64Data,
                         extension
@@ -179,7 +179,7 @@ class StudentAPI {
      */
     async photoExists(id) {
         try {
-            const result = await window.api.photos.photoExists(id);
+            const result = await globalThis.api.photos.photoExists(id);
             return result;
         } catch (error) {
             console.error('Error checking photo:', error);
@@ -193,7 +193,7 @@ class StudentAPI {
      */
     async getPhotoPath(id) {
         try {
-            const result = await window.api.photos.getPhotoPath(id);
+            const result = await globalThis.api.photos.getPhotoPath(id);
             return result;
         } catch (error) {
             console.error('Error getting photo path:', error);
