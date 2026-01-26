@@ -1,13 +1,59 @@
 /* eslint-disable prettier/prettier */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import studentAPI from "../api/studentApi";
+import { showError, showSuccess, showWarning } from "../utils/dialog";
+
 
 function AddStudent() {
     const navigate = useNavigate();
     const [photoFile, setPhotoFile] = useState(null);
     const [photoPreview, setPhotoPreview] = useState(null);
+    const [availableCohorts, setAvailableCohorts] = useState(['C1', 'C2', 'C3']);
+    const [showNewCohortInput, setShowNewCohortInput] = useState(false);
+    const [newCohortName, setNewCohortName] = useState('');
+    const [creatingCohort, setCreatingCohort] = useState(false);
+
+    // Load available cohorts on mount
+    useEffect(() => {
+        loadCohorts();
+    }, []);
+
+    const loadCohorts = async () => {
+        const result = await studentAPI.getCohorts();
+        if (result.success && result.cohorts.length > 0) {
+            setAvailableCohorts(result.cohorts);
+        }
+    };
+
+    const handleAddCohort = async () => {
+        if (!newCohortName.trim()) {
+            await showWarning('Please enter a cohort name');
+            return;
+        }
+
+        if (!/^C\d+$/.test(newCohortName.trim().toUpperCase())) {
+            await showWarning('Cohort name must be in format: C4, C5, C6, etc.');
+            return;
+        }
+
+        const cohortName = newCohortName.trim().toUpperCase();
+
+        setCreatingCohort(true);
+        const result = await studentAPI.addCohort(cohortName);
+
+        if (result.success) {
+            await showSuccess(`Cohort ${cohortName} created successfully!`);
+            await loadCohorts();
+            setFormData(prev => ({ ...prev, Source_Sheet: cohortName }));
+            setShowNewCohortInput(false);
+            setNewCohortName('');
+        } else {
+            await showError(`Failed to create cohort: ${result.error}`);
+        }
+        setCreatingCohort(false);
+    };
 
     const handleBack = () => {
         navigate('/records', {
@@ -70,12 +116,12 @@ function AddStudent() {
         if (!file) return;
 
         if (!file.type.startsWith('image/')) {
-            alert('Please select an image file');
+            showWarning('Please select an image file');
             return;
         }
 
         if (file.size > 5 * 1024 * 1024) {
-            alert('Image must be smaller than 5MB');
+            showWarning('Image must be smaller than 5MB');
             return;
         }
 
@@ -92,7 +138,7 @@ function AddStudent() {
         e.preventDefault();
 
         if (!formData.Full_Name.trim()) {
-            alert("Full Name is required!");
+            await showWarning("Full Name is required!");
             return;
         }
 
@@ -105,20 +151,14 @@ function AddStudent() {
                 const photoResult = await studentAPI.savePhoto(newStudent.id, photoFile);
                 if (!photoResult.success) {
                     console.error('Failed to upload photo:', photoResult.error);
-                    alert(`Student added, but photo upload failed: ${photoResult.error}`);
+                    await showWarning(`Student added, but photo upload failed: ${photoResult.error}`);
                 }
             }
 
-            alert(`Student "${formData.Full_Name}" added successfully!`);
-
-            // ✅ Option: Navigate to edit page so they can add participations
-            if (window.confirm('Would you like to add participations for this student now?')) {
-                navigate(`/records/${newStudent.id}/edit`);
-            } else {
-                navigate("/records");
-            }
+            await showSuccess(`Student "${formData.Full_Name}" added successfully!`);
+            navigate("/records");
         } else {
-            alert('Failed to add student: ' + result.error);
+            await showError('Failed to add student: ' + result.error);
         }
     };
 
@@ -222,7 +262,7 @@ function AddStudent() {
                 <div className="source-sheet-selector">
                     <label className="source-sheet-label">Source Cohort:</label>
                     <div className="radio-group">
-                        {["C1", "C2", "C3", "ACC C1", "ACC C2"].map(cohort => (
+                        {availableCohorts.map(cohort => (
                             <label key={cohort} className="radio-option">
                                 <input
                                     type="radio"
@@ -230,56 +270,92 @@ function AddStudent() {
                                     value={cohort}
                                     checked={formData.Source_Sheet === cohort}
                                     onChange={handleChange}
+                                    disabled={creatingCohort}
                                 />
                                 <span>{cohort}</span>
                             </label>
                         ))}
                     </div>
-                </div>
 
-                <div className="form-section">
-                    <h2 className="form-section-title">📷 Student Photo (Optional)</h2>
-                    <div className="photo-upload-section">
-                        <div className="photo-upload-preview">
-                            {photoPreview ? (
-                                <img
-                                    src={photoPreview}
-                                    alt="Preview"
-                                    className="student-photo"
-                                />
-                            ) : (
-                                <div className="photo-placeholder">
-                                    No photo selected
-                                </div>
-                            )}
-                        </div>
-                        <div className="photo-upload-controls">
-                            <label className="btn-upload-photo">
-                                📷 Select Photo
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={handlePhotoChange}
-                                    style={{ display: 'none' }}
-                                />
+                    {!showNewCohortInput && (
+                        <button
+                            type="button"
+                            onClick={() => setShowNewCohortInput(true)}
+                            disabled={creatingCohort}
+                            style={{
+                                marginTop: '10px',
+                                padding: '8px 16px',
+                                backgroundColor: '#10b981',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                fontSize: '14px'
+                            }}
+                        >
+                            ➕ Add New Cohort
+                        </button>
+                    )}
+
+                    {showNewCohortInput && (
+                        <div style={{ marginTop: '15px', padding: '15px', backgroundColor: '#f0fdf4', borderRadius: '8px', border: '1px solid #10b981' }}>
+                            <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#047857' }}>
+                                Create New Cohort:
                             </label>
-                            {photoFile && (
+                            <div style={{ display: 'flex', gap: '10px' }}>
+                                <input
+                                    type="text"
+                                    value={newCohortName}
+                                    onChange={(e) => setNewCohortName(e.target.value)}
+                                    placeholder="e.g., C4, C5"
+                                    disabled={creatingCohort}
+                                    style={{
+                                        flex: 1,
+                                        padding: '8px 12px',
+                                        border: '1px solid #d1d5db',
+                                        borderRadius: '6px'
+                                    }}
+                                />
                                 <button
                                     type="button"
-                                    className="btn-remove-photo"
-                                    onClick={() => {
-                                        setPhotoFile(null);
-                                        setPhotoPreview(null);
+                                    onClick={handleAddCohort}
+                                    disabled={creatingCohort}
+                                    style={{
+                                        padding: '8px 16px',
+                                        backgroundColor: '#10b981',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '6px',
+                                        cursor: 'pointer'
                                     }}
                                 >
-                                    ✖ Remove
+                                    {creatingCohort ? '⏳' : '✅'} Create
                                 </button>
-                            )}
-                            <p className="photo-upload-hint">
-                                JPG, PNG, or GIF • Max 5MB
-                            </p>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowNewCohortInput(false);
+                                        setNewCohortName('');
+                                    }}
+                                    disabled={creatingCohort}
+                                    style={{
+                                        padding: '8px 16px',
+                                        backgroundColor: '#6b7280',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '6px',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    ✖
+                                </button>
+                            </div>
                         </div>
-                    </div>
+                    )}
+
+                    <p style={{ fontSize: '12px', color: '#666', marginTop: '8px' }}>
+                        💡 Student ID will be auto-generated (e.g., UGO_C1_274)
+                    </p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="add-student-form">

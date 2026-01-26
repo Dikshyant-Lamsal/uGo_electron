@@ -5,6 +5,9 @@ import { electronAPI } from '@electron-toolkit/preload'
 
 // Custom APIs for renderer
 const api = {
+  dialog: {
+    showMessage: (options) => ipcRenderer.invoke('show-message', options),
+  },
   // Excel/Student API
   excel: {
     getStudents: (params) => ipcRenderer.invoke('excel:getStudents', params),
@@ -19,6 +22,12 @@ const api = {
     getPath: () => ipcRenderer.invoke('excel:getPath'),
     import: (filePath) => ipcRenderer.invoke('excel:import', filePath),
     importFile: (data) => ipcRenderer.invoke('excel:importFile', data),
+
+    // ✅ NEW: Cohort management
+    getCohorts: () => ipcRenderer.invoke('excel:getCohorts'),
+    addCohort: (cohortName) => ipcRenderer.invoke('excel:addCohort', cohortName),
+
+    runConsolidator: () => ipcRenderer.invoke('excel:runConsolidator'),
 
     // Participation methods
     getParticipations: (studentId) => ipcRenderer.invoke('excel:getParticipations', studentId),
@@ -50,15 +59,41 @@ const api = {
   }
 }
 
-// ✅ ONLY EXPOSE ONCE
-if(process.contextIsolated) {
-    try {
-      contextBridge.exposeInMainWorld('electron', electronAPI)
-contextBridge.exposeInMainWorld('api', api)
+// Use `contextBridge` APIs to expose Electron APIs to renderer
+if (process.contextIsolated) {
+  try {
+    contextBridge.exposeInMainWorld('electron', {
+      ...electronAPI,
+      // ✅ Add toggle devtools
+      ipcRenderer: {
+        send: (channel, ...args) => {
+          // Whitelist allowed channels
+          const validChannels = ['toggle-devtools', 'ping'];
+          if (validChannels.includes(channel)) {
+            ipcRenderer.send(channel, ...args);
+          }
+        },
+        invoke: electronAPI.ipcRenderer.invoke,
+        on: electronAPI.ipcRenderer.on,
+        once: electronAPI.ipcRenderer.once,
+        removeListener: electronAPI.ipcRenderer.removeListener
+      }
+    })
+    contextBridge.exposeInMainWorld('api', api)
   } catch (error) {
-  console.error(error)
-}
+    console.error(error)
+  }
 } else {
-  window.electron = electronAPI
+  window.electron = {
+    ...electronAPI,
+    ipcRenderer: {
+      send: ipcRenderer.send,
+      invoke: ipcRenderer.invoke,
+      on: ipcRenderer.on,
+      once: ipcRenderer.once,
+      removeListener: ipcRenderer.removeListener
+    }
+  }
   window.api = api
 }
+

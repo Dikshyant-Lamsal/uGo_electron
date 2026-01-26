@@ -344,6 +344,47 @@ class StudentAPI {
         }
     }
 
+    /**
+ * Get list of available cohorts
+ * @returns {Promise<{success: boolean, cohorts: Array}>}
+ */
+    async getCohorts() {
+        try {
+            const result = await window.api.excel.getCohorts();
+            return result;
+        } catch (error) {
+            console.error('Error fetching cohorts:', error);
+            return { success: false, error: error.message, cohorts: [] };
+        }
+    }
+
+    /**
+     * Add a new cohort sheet
+     * @param {string} cohortName - Cohort name (e.g., C4, C5)
+     * @returns {Promise<{success: boolean, message: string}>}
+     */
+    async addCohort(cohortName) {
+        try {
+            const result = await window.api.excel.addCohort(cohortName);
+            return result;
+        } catch (error) {
+            console.error('Error adding cohort:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+        /**
+     * Run Python consolidator script
+     */
+    async runConsolidator() {
+        try {
+            const result = await window.api.excel.runConsolidator();
+            return result;
+        } catch (error) {
+            console.error('Error running consolidator:', error);
+            return { success: false, error: error.message };
+        }
+    }
 }
 
 

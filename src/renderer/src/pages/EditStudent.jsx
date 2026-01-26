@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import Header from "../components/Header";
 import ParticipationsList from "../components/ParticipationsList"; // ✅ Import
 import studentAPI from "../api/studentApi";
+import { showWarning, showSuccess, showError } from "../utils/dialog";
 
 function EditStudent() {
     const navigate = useNavigate();
@@ -120,7 +121,7 @@ function EditStudent() {
                     Source_Sheet: studentData.Source_Sheet || ""
                 });
             } else {
-                alert('Failed to load student: ' + result.error);
+                await showError('Failed to load student: ' + result.error, 'Load Error');
             }
 
             setLoading(false);
@@ -137,17 +138,17 @@ function EditStudent() {
         }));
     };
 
-    const handlePhotoChange = (e) => {
+    const handlePhotoChange = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
         if (!file.type.startsWith('image/')) {
-            alert('Please select an image file');
+            await showWarning('Please select an image file', 'Invalid File Type');
             return;
         }
 
         if (file.size > 5 * 1024 * 1024) {
-            alert('Image must be smaller than 5MB');
+            await showWarning('Image must be smaller than 5MB', 'File Too Large');
             return;
         }
 
@@ -172,7 +173,7 @@ function EditStudent() {
         e.preventDefault();
 
         if (!formData.Full_Name.trim()) {
-            alert("Full Name is required!");
+            await showWarning("Full Name is required!", "Missing Required Field");
             return;
         }
 
@@ -183,17 +184,26 @@ function EditStudent() {
                 const photoResult = await studentAPI.savePhoto(parseInt(id), photoFile);
                 if (!photoResult.success) {
                     console.error('Failed to upload photo:', photoResult.error);
-                    alert(`Student updated, but photo upload failed: ${photoResult.error}`);
+                    await showWarning(
+                        `Student updated, but photo upload failed: ${photoResult.error}`,
+                        'Photo Upload Failed'
+                    );
                 } else {
-                    alert(`Student "${formData.Full_Name}" and photo updated successfully!`);
+                    await showSuccess(
+                        `Student "${formData.Full_Name}" and photo updated successfully!`,
+                        'Update Successful'
+                    );
                 }
             } else {
-                alert(`Student "${formData.Full_Name}" updated successfully!`);
+                await showSuccess(
+                    `Student "${formData.Full_Name}" updated successfully!`,
+                    'Update Successful'
+                );
             }
 
             navigate(`/records/${id}`);
         } else {
-            alert('Failed to update student: ' + result.error);
+            await showError('Failed to update student: ' + result.error, 'Update Failed');
         }
     };
 

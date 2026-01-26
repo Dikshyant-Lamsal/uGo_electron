@@ -164,7 +164,8 @@ body {
   white-space: nowrap;
   border-radius: 20px;
   padding: 0 16px;
-  line-height: 36px; /* Increased from 32px for better visibility */
+  line-height: 36px;
+  /* Increased from 32px for better visibility */
   font-size: 13px;
   color: var(--ev-button-alt-text);
   background-color: var(--ev-button-alt-bg);
@@ -191,15 +192,18 @@ body {
   justify-content: space-between;
   align-items: center;
   z-index: 100;
-  padding: 10px 20px; /* Increased from 8px to 10px */
+  padding: 10px 20px;
+  /* Increased from 8px to 10px */
   background-color: var(--color-background);
   box-shadow: 0 2px 4px var(--color-shadow);
-  height: 70px; /* Increased from 60px to 70px */
+  height: 70px;
+  /* Increased from 60px to 70px */
   transition: background-color 0.3s, box-shadow 0.3s;
 }
 
 #root {
-  padding-top: 70px; /* Match header height - increased from 60px */
+  padding-top: 70px;
+  /* Match header height - increased from 60px */
   min-height: 100vh;
   height: auto;
 }
@@ -216,7 +220,8 @@ body {
 .logo {
   margin-left: 0;
   margin-right: auto;
-  padding-top: 0; /* Removed padding-top: 10px */
+  padding-top: 0;
+  /* Removed padding-top: 10px */
   display: flex;
   align-items: center;
 }
@@ -1798,31 +1803,46 @@ body {
 }
 
 .file-select-button {
-    padding: 12px 24px;
-    background-color: #3b82f6;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 500;
-    transition: background-color 0.2s;
+  padding: 12px 24px;
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.2s;
 }
 
 .file-select-button:hover:not(:disabled) {
-    background-color: #2563eb;
+  background-color: #2563eb;
 }
 
 .file-select-button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .selected-file {
-    margin-top: 12px;
-    padding: 8px 12px;
-    background-color: #ecfdf5;
-    border-left: 4px solid #10b981;
-    color: #047857;
-    font-size: 14px;
+  margin-top: 12px;
+  padding: 8px 12px;
+  background-color: #ecfdf5;
+  border-left: 4px solid #10b981;
+  color: #047857;
+  font-size: 14px;
+}
+
+/* Consolidate button - distinct style */
+.action-btn-consolidate {
+  background-color: #8b5cf6 !important;
+}
+
+.action-btn-consolidate:hover:not(:disabled) {
+  background-color: #7c3aed !important;
+}
+
+.action-btn-consolidate:disabled {
+  background-color: #6b7280 !important;
+  cursor: not-allowed;
+  opacity: 0.6;
 }

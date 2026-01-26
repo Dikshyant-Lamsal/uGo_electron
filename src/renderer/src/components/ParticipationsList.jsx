@@ -1,6 +1,7 @@
 /* eslint-disable prettier/prettier */
 import { useState, useEffect } from 'react';
 import studentAPI from '../api/studentApi';
+import { showSuccess, showError, showWarning, showConfirm } from '../utils/dialog';
 
 function ParticipationsList({ studentId }) {
     const [participations, setParticipations] = useState([]);
@@ -32,11 +33,11 @@ function ParticipationsList({ studentId }) {
         });
 
         if (result.success) {
-            alert('✅ Participation added successfully!');
+            await showSuccess('✅ Participation added successfully!', 'Success');
             await loadParticipations();
             setShowAddForm(false);
         } else {
-            alert('❌ Failed to add participation: ' + result.error);
+            await showError('❌ Failed to add participation: ' + result.error, 'Error');
         }
     };
 
@@ -44,23 +45,28 @@ function ParticipationsList({ studentId }) {
         const result = await studentAPI.updateParticipation(id, formData);
 
         if (result.success) {
-            alert('✅ Participation updated successfully!');
+            await showSuccess('✅ Participation updated successfully!', 'Success');
             await loadParticipations();
             setEditingId(null);
         } else {
-            alert('❌ Failed to update participation: ' + result.error);
+            await showError('❌ Failed to update participation: ' + result.error, 'Error');
         }
     };
 
     const handleDelete = async (id, eventName) => {
-        if (!window.confirm(`Delete participation "${eventName}"?`)) return;
+        const confirmed = await showConfirm(
+            `Delete participation "${eventName}"?`,
+            'Confirm Delete'
+        );
+
+        if (!confirmed) return;
 
         const result = await studentAPI.deleteParticipation(id);
         if (result.success) {
-            alert('✅ Participation deleted!');
+            await showSuccess('✅ Participation deleted!', 'Deleted');
             await loadParticipations();
         } else {
-            alert('❌ Failed to delete: ' + result.error);
+            await showError('❌ Failed to delete: ' + result.error, 'Error');
         }
     };
 
@@ -154,16 +160,16 @@ function ParticipationForm({ initialData = {}, onSubmit, onCancel }) {
         notes: initialData.notes || ''
     });
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
 
         // Validation
         if (!formData.event_name.trim()) {
-            alert('Please enter an event name');
+            await showWarning('Please enter an event name', 'Missing Event Name');
             return;
         }
         if (!formData.event_date) {
-            alert('Please select a date');
+            await showWarning('Please select a date', 'Missing Date');
             return;
         }
 

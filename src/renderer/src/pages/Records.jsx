@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import studentAPI from "../api/studentApi";
+import { showError, showSuccess, showConfirm } from "../utils/dialog";
 
 export default function Records() {
     const navigate = useNavigate();
@@ -31,6 +32,23 @@ export default function Records() {
     const hasInitializedFromURL = useRef(false);
     const lastRefreshTimestamp = useRef(null);
 
+    // ✅ Helper function to normalize cohort
+    const normalize_cohort = (source_sheet) => {
+        if (!source_sheet) return 'C1';
+        const s = String(source_sheet).toUpperCase();
+        if (s.includes('C1')) return 'C1';
+        if (s.includes('C2')) return 'C2';
+        if (s.includes('C3')) return 'C3';
+        if (s.includes('C4')) return 'C4';
+        if (s.includes('C5')) return 'C5';
+        return 'C1';
+    };
+
+    // ✅ Helper function to normalize text (remove dots, spaces, lowercase)
+    const normalizeText = (text) => {
+        if (!text) return '';
+        return String(text).toLowerCase().replace(/[.\s]/g, '');
+    };
 
     // Fetch students
     useEffect(() => {
@@ -46,7 +64,7 @@ export default function Records() {
                 if (refreshTimestamp) lastRefreshTimestamp.current = refreshTimestamp;
             } else {
                 console.error('Failed to fetch students:', result.error);
-                alert('Failed to load students: ' + result.error);
+                await showError('Failed to load students: ' + result.error);
             }
             setLoading(false);
         };
@@ -131,14 +149,39 @@ export default function Records() {
         setSearchParams(params, { replace: true });
     }, [searchTerm, filters, sortConfig, showFilters, setSearchParams]);
 
-    // Filter options
-    const filterOptions = useMemo(() => ({
-        cohorts: [...new Set(students.map(s => s.Source_Sheet).filter(Boolean))].sort(),
-        programs: [...new Set(students.map(s => s.Program).filter(Boolean))].sort(),
-        colleges: [...new Set(students.map(s => s.College).filter(Boolean))].sort(),
-        years: [...new Set(students.map(s => s.Current_Year).filter(Boolean))].sort(),
-        districts: [...new Set(students.map(s => s.District).filter(Boolean))].sort()
-    }), [students]);
+    // ✅ Filter options - Normalize and deduplicate
+    const filterOptions = useMemo(() => {
+        // Use Cohort column if available, otherwise normalize Source_Sheet
+        const cohorts = students
+            .map(s => s.Cohort || normalize_cohort(s.Source_Sheet))
+            .filter(Boolean)
+            .filter(cohort => /^C\d+$/.test(cohort)); // Only C1, C2, C3, etc.
+        
+        // ✅ Helper to get unique values with case-insensitive deduplication
+        const getUniqueNormalized = (field) => {
+            const seen = new Map(); // Map normalized -> original
+            students
+                .map(s => s[field])
+                .filter(Boolean)
+                .forEach(value => {
+                    const normalized = normalizeText(value);
+                    if (!seen.has(normalized)) {
+                        seen.set(normalized, value);
+                    }
+                });
+            return Array.from(seen.values()).sort((a, b) => 
+                a.toLowerCase().localeCompare(b.toLowerCase())
+            );
+        };
+
+        return {
+            cohorts: [...new Set(cohorts)].sort(),
+            programs: getUniqueNormalized('Program'),
+            colleges: getUniqueNormalized('College'),
+            years: getUniqueNormalized('Current_Year'),
+            districts: getUniqueNormalized('District')
+        };
+    }, [students]);
 
     const toggleFilter = (filterType, value) => {
         setFilters(prev => {
@@ -155,6 +198,13 @@ export default function Records() {
         setSearchTerm("");
     };
 
+    const clearSearch = () => {
+        setSearchTerm("");
+        if (searchInputRef.current) {
+            searchInputRef.current.focus();
+        }
+    };
+
     const handleSort = (key) => {
         setSortConfig(prev => ({
             key,
@@ -164,15 +214,41 @@ export default function Records() {
 
     const filteredAndSortedStudents = useMemo(() => {
         let filtered = students.filter(student => {
-            if (filters.cohorts.length && !filters.cohorts.includes(student.Source_Sheet)) return false;
-            if (filters.programs.length && !filters.programs.includes(student.Program)) return false;
-            if (filters.colleges.length && !filters.colleges.includes(student.College)) return false;
-            if (filters.years.length && !filters.years.includes(student.Current_Year)) return false;
-            if (filters.districts.length && !filters.districts.includes(student.District)) return false;
+            // ✅ Filter by normalized cohort
+            if (filters.cohorts.length) {
+                const studentCohort = student.Cohort || normalize_cohort(student.Source_Sheet);
+                if (!filters.cohorts.includes(studentCohort)) return false;
+            }
+            
+            // ✅ Case-insensitive filtering for programs, colleges, years, districts
+            if (filters.programs.length) {
+                const studentProgram = normalizeText(student.Program);
+                const matchesProgram = filters.programs.some(p => normalizeText(p) === studentProgram);
+                if (!matchesProgram) return false;
+            }
+            
+            if (filters.colleges.length) {
+                const studentCollege = normalizeText(student.College);
+                const matchesCollege = filters.colleges.some(c => normalizeText(c) === studentCollege);
+                if (!matchesCollege) return false;
+            }
+            
+            if (filters.years.length) {
+                const studentYear = normalizeText(student.Current_Year);
+                const matchesYear = filters.years.some(y => normalizeText(y) === studentYear);
+                if (!matchesYear) return false;
+            }
+            
+            if (filters.districts.length) {
+                const studentDistrict = normalizeText(student.District);
+                const matchesDistrict = filters.districts.some(d => normalizeText(d) === studentDistrict);
+                if (!matchesDistrict) return false;
+            }
 
             if (searchTerm) {
                 const s = searchTerm.toLowerCase();
                 return (student.Full_Name || "").toLowerCase().includes(s) ||
+                    (student.Student_ID || "").toLowerCase().includes(s) ||
                     (student.College || "").toLowerCase().includes(s) ||
                     (student.Program || "").toLowerCase().includes(s) ||
                     (student.District || "").toLowerCase().includes(s) ||
@@ -202,16 +278,21 @@ export default function Records() {
     }, [students, searchTerm, filters, sortConfig]);
 
     const handleDelete = async (id, name) => {
-        if (!window.confirm(`Are you sure you want to delete "${name}"?\nThis cannot be undone.`)) return;
+        const confirmed = await showConfirm(
+            `Are you sure you want to delete "${name}"?\nThis cannot be undone.`,
+            'Delete Student'
+        );
+        
+        if (!confirmed) return;
 
         setIsUpdating(true);
         const result = await studentAPI.deleteStudent(id);
 
         if (result.success) {
-            alert(`Student "${name}" deleted!`);
+            await showSuccess(`Student "${name}" deleted!`);
             setStudents(prev => prev.filter(s => s.id !== id));
         } else {
-            alert('Delete failed: ' + result.error);
+            await showError('Delete failed: ' + result.error);
         }
         setIsUpdating(false);
     };
@@ -240,15 +321,39 @@ export default function Records() {
             <div className="search-filter-section">
                 <div className="search-box">
                     <label className="search-label">🔍 Search Students</label>
-                    <input
-                        ref={searchInputRef}
-                        type="text"
-                        className="search-input"
-                        placeholder="Search by name, college, program, district, or contact..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        autoComplete="off"
-                    />
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                        <input
+                            ref={searchInputRef}
+                            type="text"
+                            className="search-input"
+                            placeholder="Search by name, Student ID, college, program, district, or contact..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            autoComplete="off"
+                            style={{ paddingRight: searchTerm ? '40px' : '12px' }}
+                        />
+                        {searchTerm && (
+                            <button
+                                onClick={clearSearch}
+                                style={{
+                                    position: 'absolute',
+                                    right: '10px',
+                                    background: 'none',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    fontSize: '18px',
+                                    color: '#999',
+                                    padding: '4px 8px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                                title="Clear search"
+                            >
+                                ✖
+                            </button>
+                        )}
+                    </div>
                 </div>
 
                 <div className="filter-header">
@@ -264,7 +369,6 @@ export default function Records() {
                             ✖ Clear All
                         </button>
                     )}
-
                 </div>
 
                 {/* Filters UI */}
@@ -277,7 +381,7 @@ export default function Records() {
                                         type === 'programs' ? '🎓 Program' :
                                             type === 'colleges' ? '🏫 College' :
                                                 type === 'years' ? '📅 Year' : '📍 District'}
-                                    {filters[type].length > 0 && `(${filters[type].length})`}
+                                    {filters[type].length > 0 && ` (${filters[type].length})`}
                                 </label>
                                 <div className="filter-checkboxes">
                                     {filterOptions[type].map(value => (
@@ -305,6 +409,10 @@ export default function Records() {
             <table className="records-table">
                 <thead>
                     <tr>
+                        {/* ✅ Add Student_ID column */}
+                        <th onClick={() => handleSort('Student_ID')} className="sortable">
+                            Student ID {sortConfig.key === 'Student_ID' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                        </th>
                         {['Full_Name', 'Program', 'College', 'Current_Year', 'District'].map(key => (
                             <th key={key} onClick={() => handleSort(key)} className="sortable">
                                 {key === 'Full_Name' ? 'Name' :
@@ -320,6 +428,7 @@ export default function Records() {
                 <tbody>
                     {filteredAndSortedStudents.length > 0 ? filteredAndSortedStudents.map(s => (
                         <tr key={s.id}>
+                            <td><strong>{s.Student_ID}</strong></td>
                             <td>{s.Full_Name}</td>
                             <td>{s.Program}</td>
                             <td>{s.College}</td>
@@ -338,7 +447,7 @@ export default function Records() {
                         </tr>
                     )) : (
                         <tr>
-                            <td colSpan="6" style={{ textAlign: 'center', padding: '20px', color: 'var(--ev-c-text-3)' }}>
+                            <td colSpan="7" style={{ textAlign: 'center', padding: '20px', color: 'var(--ev-c-text-3)' }}>
                                 {searchTerm || activeFilterCount > 0
                                     ? 'No students found matching your search criteria'
                                     : 'No students in database'}

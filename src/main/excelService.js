@@ -4,6 +4,7 @@ import XLSX from 'xlsx';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
+import { spawn } from 'child_process';
 
 // __dirname replacement for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -37,6 +38,18 @@ function isCacheValid() {
         return stats.mtime.getTime() === lastModified;
     } catch (err) {
         return false;
+    }
+}
+
+// Helper to restore focus
+function restoreFocus() {
+    const windows = BrowserWindow.getAllWindows();
+    if (windows.length > 0) {
+        const mainWindow = windows[0];
+        setTimeout(() => {
+            mainWindow.focus();
+            mainWindow.webContents.focus();
+        }, 50);
     }
 }
 
@@ -240,17 +253,22 @@ ipcMain.handle('excel:getStudent', (event, id) => {
 /**
  * Add new student
  */
+
 ipcMain.handle('excel:addStudent', (event, studentData) => {
     try {
         const students = getAllStudents();
 
-        // Generate new ID (next sequential number)
+        // Generate new GLOBAL ID
         const maxId = students.reduce((max, s) => Math.max(max, s.id || 0), 0);
         const newId = maxId + 1;
 
-        // Create new student with ID and timestamp
+        // Get cohort from student data
+        const cohort = studentData.Source_Sheet || 'C1';
+
+        // Create new student with GLOBAL sequential ID
         const newStudent = {
             id: newId,
+            Student_ID: `UGO_${cohort}_${newId}`,  // e.g., UGO_C1_274
             ...studentData,
             Last_Updated: new Date().toISOString()
         };
@@ -261,7 +279,7 @@ ipcMain.handle('excel:addStudent', (event, studentData) => {
         // Save to Excel
         saveStudents(students);
 
-        console.log(`✅ Added student: ${newStudent.Full_Name} (ID: ${newId})`);
+        console.log(`✅ Added student: ${newStudent.Full_Name} (ID: ${newStudent.Student_ID})`);
 
         return {
             success: true,
@@ -416,31 +434,30 @@ ipcMain.handle('excel:getSheetData', (event, { sheetName, page, limit, search })
  */
 ipcMain.handle('photos:save', async (event, { id, photoData, extension }) => {
     try {
-        // Delete old photo if exists (might have different extension)
         const extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
         for (const ext of extensions) {
             const oldPhotoPath = path.join(photosPath, `${id}.${ext}`);
             if (fs.existsSync(oldPhotoPath)) {
                 fs.unlinkSync(oldPhotoPath);
-                console.log(`🗑️ Deleted old photo: ${oldPhotoPath}`);
             }
         }
 
-        // Save new photo
         const buffer = Buffer.from(photoData, 'base64');
         const photoPath = path.join(photosPath, `${id}.${extension}`);
-
         fs.writeFileSync(photoPath, buffer);
 
-        console.log(`✅ Saved photo for student ID ${id}: ${photoPath}`);
+        console.log(`✅ Saved photo for student ID ${id}`);
+
+        restoreFocus(); // ✅ Restore focus after save
 
         return {
             success: true,
             message: 'Photo saved successfully',
-            path: `atom://${photoPath}`  // ✅ Changed to atom://
+            path: `atom://${photoPath}`
         };
     } catch (err) {
         console.error('Error saving photo:', err);
+        restoreFocus(); // ✅ Restore focus on error
         return { success: false, error: err.message };
     }
 });
@@ -733,7 +750,6 @@ ipcMain.handle('excel:getAllParticipations', (event, params = {}) => {
 // Save PDF handler
 ipcMain.handle('save-pdf', async (event, { htmlContent, defaultFileName, openAfterSave = true }) => {
     try {
-        // Show save dialog
         const { filePath, canceled } = await dialog.showSaveDialog({
             title: 'Save PDF',
             defaultPath: defaultFileName || 'student-profile.pdf',
@@ -741,10 +757,10 @@ ipcMain.handle('save-pdf', async (event, { htmlContent, defaultFileName, openAft
         });
 
         if (canceled || !filePath) {
+            restoreFocus(); // ✅ Restore focus on cancel
             return { success: false, canceled: true };
         }
 
-        // Hidden window for PDF generation
         const pdfWindow = new BrowserWindow({
             show: false,
             webPreferences: {
@@ -753,51 +769,40 @@ ipcMain.handle('save-pdf', async (event, { htmlContent, defaultFileName, openAft
             }
         });
 
-        // Load HTML
         await pdfWindow.loadURL(
             `data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`
         );
 
-        // Ensure rendering is complete
         await new Promise(resolve => setTimeout(resolve, 800));
 
-        // Generate PDF
         const pdfData = await pdfWindow.webContents.printToPDF({
             printBackground: true,
             pageSize: 'A4',
-            margins: {
-                top: 0.5,
-                bottom: 0.5,
-                left: 0.5,
-                right: 0.5
-            }
+            margins: { top: 0.5, bottom: 0.5, left: 0.5, right: 0.5 }
         });
 
-        // Save file
         fs.writeFileSync(filePath, pdfData);
-
         pdfWindow.destroy();
 
         console.log(`✅ PDF saved: ${filePath}`);
 
-        // 🔥 AUTO-OPEN PDF
         if (openAfterSave) {
             await shell.openPath(filePath);
         }
 
-        return {
-            success: true,
-            filePath
-        };
+        restoreFocus(); // ✅ Restore focus after save
+
+        return { success: true, filePath };
     } catch (error) {
         console.error('❌ Error saving PDF:', error);
-        return {
-            success: false,
-            error: error.message
-        };
+        restoreFocus(); // ✅ Restore focus on error
+        return { success: false, error: error.message };
     }
 });
 
+/**
+ * Import students from uploaded Excel file
+ */
 /**
  * Import students from uploaded Excel file
  */
@@ -808,7 +813,7 @@ ipcMain.handle('excel:importFile', async (event, { filePath, sourceSheet }) => {
         // Read uploaded Excel file
         const workbook = XLSX.readFile(filePath);
 
-        // Get first sheet or specified sheet
+        // Get first sheet
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         const importedData = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
@@ -818,13 +823,19 @@ ipcMain.handle('excel:importFile', async (event, { filePath, sourceSheet }) => {
         // Get current students
         const currentStudents = getAllStudents();
 
-        // Find max ID
+        // Find max GLOBAL numeric ID across ALL students
         const maxId = currentStudents.reduce((max, s) => Math.max(max, s.id || 0), 0);
+
+        console.log(`📋 Max Global ID: ${maxId}`);
+        console.log(`📋 Next students will be: ${maxId + 1} to ${maxId + importedData.length}`);
 
         // Process imported students
         const newStudents = importedData.map((student, index) => {
+            const globalId = maxId + index + 1;  // Global sequential: 274, 275, 276...
+
             return {
-                id: maxId + index + 1,
+                id: globalId,  // Global numeric ID
+                Student_ID: `UGO_${sourceSheet}_${globalId}`,  // e.g., UGO_C1_274, UGO_C1_275
                 Full_Name: student.Full_Name || student['Full Name'] || '',
                 District: student.District || '',
                 Address: student.Address || '',
@@ -862,7 +873,7 @@ ipcMain.handle('excel:importFile', async (event, { filePath, sourceSheet }) => {
                 Overall_Status: student.Overall_Status || student['Overall Status'] || '',
                 Participation: student.Participation || '',
                 Remarks: student.Remarks || '',
-                Source_Sheet: sourceSheet || student.Source_Sheet || 'Imported',
+                Source_Sheet: sourceSheet,
                 Last_Updated: new Date().toISOString()
             };
         });
@@ -874,12 +885,15 @@ ipcMain.handle('excel:importFile', async (event, { filePath, sourceSheet }) => {
         saveStudents(mergedStudents);
 
         console.log(`✅ Imported ${newStudents.length} new students`);
+        console.log(`   Student IDs: ${newStudents[0]?.Student_ID} to ${newStudents[newStudents.length - 1]?.Student_ID}`);
 
         return {
             success: true,
             message: `Successfully imported ${newStudents.length} students`,
             imported: newStudents.length,
-            total: mergedStudents.length
+            total: mergedStudents.length,
+            firstId: newStudents[0]?.Student_ID,
+            lastId: newStudents[newStudents.length - 1]?.Student_ID
         };
     } catch (err) {
         console.error('Error importing file:', err);
@@ -909,6 +923,179 @@ ipcMain.on('devtools-refresh', (event) => {
     }
 });
 
+// ============================================
+// COHORT MANAGEMENT
+// ============================================
+
+/**
+ * Get list of available cohorts (C1, C2, C3, ...)
+ */
+ipcMain.handle('excel:getCohorts', () => {
+    try {
+        const workbook = XLSX.readFile(excelPath);
+        const cohortSheets = workbook.SheetNames.filter(name => /^C\d+$/.test(name));
+
+        // Sort cohorts numerically (C1, C2, C3, ...)
+        cohortSheets.sort((a, b) => {
+            const numA = parseInt(a.substring(1));
+            const numB = parseInt(b.substring(1));
+            return numA - numB;
+        });
+
+        console.log('📚 Available cohorts:', cohortSheets);
+
+        return {
+            success: true,
+            cohorts: cohortSheets
+        };
+    } catch (err) {
+        console.error('Error getting cohorts:', err);
+        return { success: false, error: err.message, cohorts: [] };
+    }
+});
+
+/**
+ * Add a new cohort sheet to the Excel file
+ */
+ipcMain.handle('excel:addCohort', (event, cohortName) => {
+    try {
+        // Validate cohort name format (must be C followed by numbers)
+        if (!/^C\d+$/.test(cohortName)) {
+            return {
+                success: false,
+                error: 'Invalid cohort name. Must be in format C1, C2, C3, etc.'
+            };
+        }
+
+        console.log(`📝 Adding new cohort sheet: ${cohortName}`);
+
+        // Read existing workbook
+        const workbook = XLSX.readFile(excelPath);
+
+        // Check if cohort already exists
+        if (workbook.SheetNames.includes(cohortName)) {
+            return {
+                success: false,
+                error: `Cohort ${cohortName} already exists`
+            };
+        }
+
+        // Create template structure based on C1 sheet format
+        const templateData = [
+            {
+                'S.N': '',
+                'Full Name': '',
+                'Scholarship Starting Year': '',
+                'Current Year': '',
+                'Scholarship Type': '',
+                'Scholarship %': '',
+                'Contact Number': '',
+                'District': '',
+                'Address': '',
+                'Program': '',
+                'Program Structure (Year/Semester)': '',
+                'College': '',
+                'Scholarship Status': '',
+                'Remarks': '',
+                'Year 1 GPA': '',
+                'Unnamed: 15': '',
+                'Year 2 GPA': '',
+                'Unnamed: 17': '',
+                'Year 3 GPA': '',
+                'Unnamed: 19': '',
+                'Year 4 Gpa': '',
+                'Unnamed: 21': '',
+                'Overall Status': '',
+                'Unnamed: 23': '',
+                'Participation in Activities': ''
+            }
+        ];
+
+        // Create new worksheet
+        const newWorksheet = XLSX.utils.json_to_sheet(templateData);
+
+        // Add the new sheet to workbook
+        XLSX.utils.book_append_sheet(workbook, newWorksheet, cohortName);
+
+        // Save workbook
+        XLSX.writeFile(workbook, excelPath);
+
+        console.log(`✅ Created new cohort sheet: ${cohortName}`);
+
+        return {
+            success: true,
+            message: `Cohort ${cohortName} created successfully`,
+            cohortName
+        };
+    } catch (err) {
+        console.error('Error adding cohort:', err);
+        return { success: false, error: err.message };
+    }
+});
+
+/**
+ * Run Python consolidator script
+ */
+ipcMain.handle('excel:runConsolidator', async () => {
+    try {
+        console.log('🔄 Running Python consolidator script...');
+
+        // Get script path
+        const scriptPath = path.resolve(__dirname, '../../scripts/smart_consolidator.py');
+
+        // Check if Python is available
+        const pythonCommand = process.platform === 'win32' ? 'python' : 'python3';
+
+        return new Promise((resolve, reject) => {
+            const process = spawn(pythonCommand, [scriptPath]);
+
+            let output = '';
+            let errorOutput = '';
+
+            process.stdout.on('data', (data) => {
+                const text = data.toString();
+                console.log(text);
+                output += text;
+            });
+
+            process.stderr.on('data', (data) => {
+                const text = data.toString();
+                console.error(text);
+                errorOutput += text;
+            });
+
+            process.on('close', (code) => {
+                if (code === 0) {
+                    // Success - refresh cache
+                    readExcelFile();
+
+                    resolve({
+                        success: true,
+                        message: 'Consolidation completed successfully',
+                        output: output
+                    });
+                } else {
+                    reject({
+                        success: false,
+                        error: `Script exited with code ${code}`,
+                        output: errorOutput || output
+                    });
+                }
+            });
+
+            process.on('error', (error) => {
+                reject({
+                    success: false,
+                    error: error.message
+                });
+            });
+        });
+
+    } catch (err) {
+        console.error('Error running consolidator:', err);
+        return { success: false, error: err.message };
+    }
+});
 
 console.log('✅ Excel Service initialized');
 console.log(`📁 Excel path: ${excelPath}`);

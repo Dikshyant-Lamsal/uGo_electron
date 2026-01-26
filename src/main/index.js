@@ -1,14 +1,14 @@
 /* eslint-disable prettier/prettier */
-import { app, shell, BrowserWindow, ipcMain, protocol, net } from 'electron';
+import { app, shell, BrowserWindow, ipcMain, protocol, net, dialog } from 'electron';
 import { join } from 'path';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import icon from '../../resources/icon.png?asset';
 import { existsSync } from 'fs';
-import { dialog } from 'electron';
 
 // Import Excel backend service
-import './excelService.js'; // ✅ Just import once; it registers IPC handlers
+import './excelService.js';
 
+let mainWindow = null; // ✅ Store main window reference
 
 // Register custom protocol BEFORE app.whenReady()
 protocol.registerSchemesAsPrivileged([
@@ -25,7 +25,7 @@ protocol.registerSchemesAsPrivileged([
 ]);
 
 function createWindow() {
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 900,
     height: 670,
     show: false,
@@ -33,15 +33,35 @@ function createWindow() {
     icon,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      sandbox: false,
+      nodeIntegration: false,
+      contextIsolation: true,
+      devTools: true
     }
   });
 
-  mainWindow.on('ready-to-show', () => mainWindow.show());
+  mainWindow.on('ready-to-show', () => {
+    mainWindow.show();
+    mainWindow.focus(); // ✅ Ensure focus on show
+  });
 
   mainWindow.webContents.setWindowOpenHandler(details => {
     shell.openExternal(details.url);
     return { action: 'deny' };
+  });
+
+  // ✅ Handle focus events
+  mainWindow.on('focus', () => {
+    console.log('✅ Window focused');
+  });
+
+  mainWindow.on('blur', () => {
+    console.log('⚠️ Window blurred');
+  });
+
+  // ✅ Auto-restore focus after losing it
+  mainWindow.on('restore', () => {
+    mainWindow.focus();
   });
 
   // Load dev URL or production HTML
@@ -50,59 +70,55 @@ function createWindow() {
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'));
   }
+
+  // ✅ Clear reference on close
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
 }
 
 app.whenReady().then(() => {
   // Register custom protocol handler using modern API
   protocol.handle('atom', (request) => {
     let url = request.url;
-    
+
     console.log('🔍 Protocol handler - Incoming request:', url);
-    
+
     try {
-      // Remove the atom:// protocol
       url = url.replace('atom://', '');
-      
-      // Decode URI components
       url = decodeURIComponent(url);
-      
+
       console.log('🔍 After decode:', url);
-      
-      // Handle Windows paths
+
       if (process.platform === 'win32') {
-        // Fix lowercase drive letter without colon (c/Users -> C:\Users)
         url = url.replace(/^([a-z])(\/|\\)/i, (match, driveLetter) => {
           return driveLetter.toUpperCase() + ':\\';
         });
-        
-        // Remove leading slash if present (e.g., /C:/ -> C:/)
+
         if (url.match(/^\/[A-Za-z]:\//)) {
           url = url.substring(1);
         }
-        
-        // Normalize slashes to backslashes
+
         url = url.replace(/\//g, '\\');
       }
-      
+
       console.log('🔍 Final resolved path:', url);
-      
-      // Check if file exists
+
       if (!existsSync(url)) {
         console.error('❌ File does not exist:', url);
-        return new Response('File not found', { 
+        return new Response('File not found', {
           status: 404,
           headers: { 'content-type': 'text/plain' }
         });
       }
-      
+
       console.log('✅ File exists, serving:', url);
-      
-      // Use net.fetch to load the file
+
       return net.fetch(`file://${url}`);
-      
+
     } catch (error) {
       console.error('❌ Protocol error:', error);
-      return new Response('Internal error', { 
+      return new Response('Internal error', {
         status: 500,
         headers: { 'content-type': 'text/plain' }
       });
@@ -113,17 +129,98 @@ app.whenReady().then(() => {
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window);
+
+    // ✅ Auto-restore focus when window becomes visible
+    window.on('show', () => {
+      setTimeout(() => window.focus(), 100);
+    });
   });
 
   createWindow();
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow();
+    } else if (mainWindow) {
+      mainWindow.focus(); // ✅ Focus on activate
+    }
   });
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
+});
+
+// ✅ Helper function to restore focus
+function restoreFocus() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.focus();
+    mainWindow.webContents.focus();
+  }
+}
+
+
+ipcMain.on('toggle-devtools', () => {
+  console.log('🔧 Simulating Ctrl+Shift+I twice');
+
+  const targetWindow = BrowserWindow.getFocusedWindow() || mainWindow || BrowserWindow.getAllWindows()[0];
+
+  if (!targetWindow) {
+    console.error('❌ No window available');
+    return;
+  }
+
+  // Function to simulate Ctrl+Shift+I
+  const pressCtrlShiftI = () => {
+    // Key down events
+    targetWindow.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Control' });
+    targetWindow.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Shift' });
+    targetWindow.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'I' });
+
+    // Key up events
+    targetWindow.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'I' });
+    targetWindow.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Shift' });
+    targetWindow.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Control' });
+  };
+
+  // Press Ctrl+Shift+I first time
+  pressCtrlShiftI();
+  console.log('✅ First Ctrl+Shift+I sent');
+
+  // Wait and press again
+  setTimeout(() => {
+    pressCtrlShiftI();
+    console.log('✅ Second Ctrl+Shift+I sent');
+
+    // Restore focus
+    setTimeout(() => {
+      targetWindow.focus();
+      targetWindow.webContents.focus();
+      console.log('✅ Focus restored');
+    }, 100);
+  }, 200);
+});
+
+// Add this with your other ipcMain handlers
+ipcMain.handle('show-message', async (event, { type, title, message, buttons }) => {
+  const targetWindow = BrowserWindow.getFocusedWindow() || mainWindow || BrowserWindow.getAllWindows()[0];
+
+  if (!targetWindow) {
+    return { response: 0 };
+  }
+
+  const result = await dialog.showMessageBox(targetWindow, {
+    type: type || 'info',
+    title: title || 'Message',
+    message: message || '',
+    buttons: buttons || ['OK'],
+    defaultId: 0,
+    cancelId: buttons ? buttons.length - 1 : 0
+  });
+
+  return result;
 });
 
 // Test IPC

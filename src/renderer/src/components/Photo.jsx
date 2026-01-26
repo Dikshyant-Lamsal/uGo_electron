@@ -1,9 +1,10 @@
 /* eslint-disable prettier/prettier */
 import { useState, useEffect } from 'react';
 import studentAPI from '../api/studentApi';
+import { showError, showSuccess, showConfirm, showWarning } from '../utils/dialog';
 import icon from '../assets/logo/icon.png';
 
-function Photo({ studentId, studentName, editable = false, onPhotoChange }) {
+function Photo({ studentId, studentName, studentID, editable = false, onPhotoChange }) {
     const [photoUrl, setPhotoUrl] = useState(null);
     const [loading, setLoading] = useState(true);
 
@@ -13,12 +14,12 @@ function Photo({ studentId, studentName, editable = false, onPhotoChange }) {
 
     const loadPhoto = async () => {
         setLoading(true);
-        const result = await studentAPI.getPhotoPath(studentId);
-
+        // Use Student_ID if available, otherwise fall back to database id
+        const photoIdentifier = studentID || studentId;
+        const result = await studentAPI.getPhotoPath(photoIdentifier);
         if (result.success) {
             setPhotoUrl(result.path);
         }
-
         setLoading(false);
     };
 
@@ -28,39 +29,40 @@ function Photo({ studentId, studentName, editable = false, onPhotoChange }) {
 
         // Validate file type
         if (!file.type.startsWith('image/')) {
-            alert('Please select an image file');
+            await showWarning('Please select an image file');
             return;
         }
 
         // Validate file size (max 5MB)
         if (file.size > 5 * 1024 * 1024) {
-            alert('Image must be smaller than 5MB');
+            await showWarning('Image must be smaller than 5MB');
             return;
         }
 
-        // Upload photo
-        const result = await studentAPI.savePhoto(studentId, file);
-
+        // Upload photo using Student_ID if available
+        const photoIdentifier = studentID || studentId;
+        const result = await studentAPI.savePhoto(photoIdentifier, file);
         if (result.success) {
-            alert('Photo uploaded successfully!');
+            await showSuccess('Photo uploaded successfully!');
             loadPhoto(); // Reload photo
             if (onPhotoChange) onPhotoChange();
         } else {
-            alert('Failed to upload photo: ' + result.error);
+            await showError('Failed to upload photo: ' + result.error);
         }
     };
 
     const handleDelete = async () => {
-        if (!window.confirm('Delete this photo?')) return;
+        const confirmed = await showConfirm('Delete this photo?', 'Delete Photo');
+        if (!confirmed) return;
 
-        const result = await studentAPI.deletePhoto(studentId);
-
+        const photoIdentifier = studentID || studentId;
+        const result = await studentAPI.deletePhoto(photoIdentifier);
         if (result.success) {
-            alert('Photo deleted successfully!');
+            await showSuccess('Photo deleted successfully!');
             setPhotoUrl(null);
             if (onPhotoChange) onPhotoChange();
         } else {
-            alert('Failed to delete photo: ' + result.error);
+            await showError('Failed to delete photo: ' + result.error);
         }
     };
 
@@ -85,7 +87,6 @@ function Photo({ studentId, studentName, editable = false, onPhotoChange }) {
                     <img src={icon} alt={studentName} className="logo" />
                 </div>
             )}
-
             {editable && (
                 <div className="photo-actions">
                     <label className="btn-upload-photo">
@@ -97,7 +98,6 @@ function Photo({ studentId, studentName, editable = false, onPhotoChange }) {
                             style={{ display: 'none' }}
                         />
                     </label>
-
                     {photoUrl && (
                         <button
                             className="btn-delete-photo"

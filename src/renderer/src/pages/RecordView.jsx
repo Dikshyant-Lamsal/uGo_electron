@@ -5,6 +5,7 @@ import Header from "../components/Header";
 import Photo from "../components/Photo";
 import ParticipationsList from "../components/ParticipationsList";
 import studentAPI from "../api/studentApi";
+import { showError, showSuccess } from "../utils/dialog";
 
 export default function RecordView() {
     const { id } = useParams();
@@ -85,13 +86,13 @@ export default function RecordView() {
             const result = await studentAPI.saveStudentPDF(htmlContent, defaultFileName);
 
             if (result.success) {
-                alert(`✅ PDF saved successfully to:\n${result.filePath}`);
+                await showSuccess(`PDF saved successfully to:\n${result.filePath}`);
             } else if (!result.canceled) {
-                alert(`❌ Failed to save PDF: ${result.error}`);
+                await showError(`Failed to save PDF: ${result.error}`);
             }
         } catch (error) {
             console.error('Error saving PDF:', error);
-            alert('❌ Failed to save PDF. Please try again.');
+            await showError('Failed to save PDF. Please try again.');
         } finally {
             setSavingPdf(false);
         }
@@ -349,6 +350,7 @@ export default function RecordView() {
                     <Photo
                         key={photoKey}
                         studentId={student.id}
+                        studentID={student.Student_ID}  // ✅ Pass Student_ID
                         studentName={student.Full_Name}
                         editable={true}
                         onPhotoChange={handlePhotoChange}
