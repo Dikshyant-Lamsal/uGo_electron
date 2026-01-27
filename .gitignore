@@ -4,3 +4,8 @@ out
 .DS_Store
 .eslintcache
 *.log*
+
+config/
+config/*.json
+
+data/photos/
