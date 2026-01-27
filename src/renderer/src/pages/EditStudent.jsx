@@ -2,7 +2,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Header from "../components/Header";
-import ParticipationsList from "../components/ParticipationsList"; // ✅ Import
+import Photo from "../components/Photo"; // ✅ Import Photo component
+import ParticipationsList from "../components/ParticipationsList";
 import studentAPI from "../api/studentApi";
 import { showWarning, showSuccess, showError } from "../utils/dialog";
 
@@ -17,19 +18,17 @@ function EditStudent() {
     };
     const [student, setStudent] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [photoFile, setPhotoFile] = useState(null);
-    const [photoPreview, setPhotoPreview] = useState(null);
-    const [currentPhotoExists, setCurrentPhotoExists] = useState(false);
+    const [photoKey, setPhotoKey] = useState(0); // ✅ Key to force photo refresh
 
     const [formData, setFormData] = useState({
         Full_Name: "",
         District: "",
         Address: "",
         Contact_Number: "",
-        Father_Name: "",        // ✅ Add these
-        Father_Contact: "",     // ✅ Add these
-        Mother_Name: "",        // ✅ Add these
-        Mother_Contact: "",     // ✅ Add these
+        Father_Name: "",
+        Father_Contact: "",
+        Mother_Name: "",
+        Mother_Contact: "",
         Program: "",
         College: "",
         Current_Year: "",
@@ -72,23 +71,16 @@ function EditStudent() {
                 const studentData = result.data;
                 setStudent(studentData);
 
-                // Check if photo exists
-                const photoResult = await studentAPI.getPhotoPath(studentData.id);
-                if (photoResult.success) {
-                    setCurrentPhotoExists(true);
-                    setPhotoPreview(photoResult.path);
-                }
-
                 // Populate form with student data
                 setFormData({
                     Full_Name: studentData.Full_Name || "",
                     District: studentData.District || "",
                     Address: studentData.Address || "",
                     Contact_Number: studentData.Contact_Number || "",
-                    Father_Name: studentData.Father_Name || "",           // ✅ Add
-                    Father_Contact: studentData.Father_Contact || "",     // ✅ Add
-                    Mother_Name: studentData.Mother_Name || "",           // ✅ Add
-                    Mother_Contact: studentData.Mother_Contact || "",     // ✅ Add
+                    Father_Name: studentData.Father_Name || "",
+                    Father_Contact: studentData.Father_Contact || "",
+                    Mother_Name: studentData.Mother_Name || "",
+                    Mother_Contact: studentData.Mother_Contact || "",
                     Program: studentData.Program || "",
                     College: studentData.College || "",
                     Current_Year: studentData.Current_Year || "",
@@ -138,35 +130,9 @@ function EditStudent() {
         }));
     };
 
-    const handlePhotoChange = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        if (!file.type.startsWith('image/')) {
-            await showWarning('Please select an image file', 'Invalid File Type');
-            return;
-        }
-
-        if (file.size > 5 * 1024 * 1024) {
-            await showWarning('Image must be smaller than 5MB', 'File Too Large');
-            return;
-        }
-
-        setPhotoFile(file);
-
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            setPhotoPreview(e.target.result);
-        };
-        reader.readAsDataURL(file);
-    };
-
-    const handleRemovePhoto = () => {
-        setPhotoFile(null);
-        setPhotoPreview(currentPhotoExists ? null : null);
-
-        const fileInput = document.querySelector('input[type="file"]');
-        if (fileInput) fileInput.value = '';
+    // ✅ Callback when photo changes
+    const handlePhotoChange = () => {
+        setPhotoKey(prev => prev + 1);
     };
 
     const handleSubmit = async (e) => {
@@ -180,27 +146,10 @@ function EditStudent() {
         const result = await studentAPI.updateStudent(parseInt(id), formData);
 
         if (result.success) {
-            if (photoFile) {
-                const photoResult = await studentAPI.savePhoto(parseInt(id), photoFile);
-                if (!photoResult.success) {
-                    console.error('Failed to upload photo:', photoResult.error);
-                    await showWarning(
-                        `Student updated, but photo upload failed: ${photoResult.error}`,
-                        'Photo Upload Failed'
-                    );
-                } else {
-                    await showSuccess(
-                        `Student "${formData.Full_Name}" and photo updated successfully!`,
-                        'Update Successful'
-                    );
-                }
-            } else {
-                await showSuccess(
-                    `Student "${formData.Full_Name}" updated successfully!`,
-                    'Update Successful'
-                );
-            }
-
+            await showSuccess(
+                `Student "${formData.Full_Name}" updated successfully!`,
+                'Update Successful'
+            );
             navigate(`/records/${id}`);
         } else {
             await showError('Failed to update student: ' + result.error, 'Update Failed');
@@ -325,53 +274,22 @@ function EditStudent() {
                     <span className="source-sheet-badge">Source Cohort: {formData.Source_Sheet}</span>
                 </div>
 
-                {/* Photo Upload Section */}
+                {/* ✅ REPLACED: Use Photo component instead of custom upload logic */}
                 <div className="form-section">
-                    <h2 className="form-section-title">📷 Student Photo (Optional)</h2>
-                    <div className="photo-upload-section">
-                        <div className="photo-upload-preview">
-                            {photoPreview ? (
-                                <img
-                                    src={photoPreview}
-                                    alt="Preview"
-                                    className="student-photo"
-                                />
-                            ) : (
-                                <div className="photo-placeholder">
-                                    {currentPhotoExists ? 'Current photo removed' : 'No photo selected'}
-                                </div>
-                            )}
-                        </div>
-                        <div className="photo-upload-controls">
-                            <label className="btn-upload-photo">
-                                📷 {currentPhotoExists || photoFile ? 'Change Photo' : 'Select Photo'}
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={handlePhotoChange}
-                                    style={{ display: 'none' }}
-                                />
-                            </label>
-                            {photoFile && (
-                                <button
-                                    type="button"
-                                    className="btn-remove-photo"
-                                    onClick={handleRemovePhoto}
-                                >
-                                    ✖ Remove Selected
-                                </button>
-                            )}
-                            <p className="photo-upload-hint">
-                                JPG, PNG, or GIF • Max 5MB
-                                {currentPhotoExists && !photoFile && (
-                                    <><br />Current photo will remain if no new photo is selected</>
-                                )}
-                            </p>
-                        </div>
+                    <h2 className="form-section-title">📷 Student Photo</h2>
+                    <div className="photo-upload-section" style={{ display: 'flex', justifyContent: 'center', padding: '20px' }}>
+                        <Photo
+                            key={photoKey}
+                            studentId={student.id}
+                            studentID={student.Student_ID}
+                            studentName={student.Full_Name}
+                            editable={true}
+                            onPhotoChange={handlePhotoChange}
+                        />
                     </div>
                 </div>
 
-                {/* ✅ ADD PARTICIPATIONS SECTION HERE - BEFORE THE FORM */}
+                {/* ✅ Participations Section */}
                 <ParticipationsList studentId={parseInt(id)} />
 
                 <form onSubmit={handleSubmit} className="add-student-form">
