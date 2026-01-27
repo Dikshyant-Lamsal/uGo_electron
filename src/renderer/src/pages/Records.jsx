@@ -5,6 +5,8 @@ import studentAPI from "../api/studentApi";
 import { showError, showSuccess, showConfirm } from "../utils/dialog";
 
 export default function Records() {
+
+
     const navigate = useNavigate();
     const location = useLocation();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -32,15 +34,16 @@ export default function Records() {
     const hasInitializedFromURL = useRef(false);
     const lastRefreshTimestamp = useRef(null);
 
+    const [availableCohorts, setAvailableCohorts] = useState([]);
+
     // ✅ Helper function to normalize cohort
     const normalize_cohort = (source_sheet) => {
         if (!source_sheet) return 'C1';
-        const s = String(source_sheet).toUpperCase();
-        if (s.includes('C1')) return 'C1';
-        if (s.includes('C2')) return 'C2';
-        if (s.includes('C3')) return 'C3';
-        if (s.includes('C4')) return 'C4';
-        if (s.includes('C5')) return 'C5';
+        const str = String(source_sheet);
+        const match = str.match(/\bC(\d+)\b/);
+        if (match) {
+            return `C${match[1]}`;
+        }
         return 'C1';
     };
 
@@ -149,14 +152,21 @@ export default function Records() {
         setSearchParams(params, { replace: true });
     }, [searchTerm, filters, sortConfig, showFilters, setSearchParams]);
 
+    useEffect(() => {
+        const fetchCohorts = async () => {
+            const result = await studentAPI.getCohorts();  // ✅ CORRECT
+            if (result.success) {
+                setAvailableCohorts(result.cohorts);
+            }
+        };
+        fetchCohorts();
+    }, []);
+
     // ✅ Filter options - Normalize and deduplicate
     const filterOptions = useMemo(() => {
         // Use Cohort column if available, otherwise normalize Source_Sheet
-        const cohorts = students
-            .map(s => s.Cohort || normalize_cohort(s.Source_Sheet))
-            .filter(Boolean)
-            .filter(cohort => /^C\d+$/.test(cohort)); // Only C1, C2, C3, etc.
-        
+        const cohorts = availableCohorts; // Only C1, C2, C3, etc.
+
         // ✅ Helper to get unique values with case-insensitive deduplication
         const getUniqueNormalized = (field) => {
             const seen = new Map(); // Map normalized -> original
@@ -169,7 +179,7 @@ export default function Records() {
                         seen.set(normalized, value);
                     }
                 });
-            return Array.from(seen.values()).sort((a, b) => 
+            return Array.from(seen.values()).sort((a, b) =>
                 a.toLowerCase().localeCompare(b.toLowerCase())
             );
         };
@@ -181,7 +191,7 @@ export default function Records() {
             years: getUniqueNormalized('Current_Year'),
             districts: getUniqueNormalized('District')
         };
-    }, [students]);
+    }, [students, availableCohorts]);
 
     const toggleFilter = (filterType, value) => {
         setFilters(prev => {
@@ -219,26 +229,26 @@ export default function Records() {
                 const studentCohort = student.Cohort || normalize_cohort(student.Source_Sheet);
                 if (!filters.cohorts.includes(studentCohort)) return false;
             }
-            
+
             // ✅ Case-insensitive filtering for programs, colleges, years, districts
             if (filters.programs.length) {
                 const studentProgram = normalizeText(student.Program);
                 const matchesProgram = filters.programs.some(p => normalizeText(p) === studentProgram);
                 if (!matchesProgram) return false;
             }
-            
+
             if (filters.colleges.length) {
                 const studentCollege = normalizeText(student.College);
                 const matchesCollege = filters.colleges.some(c => normalizeText(c) === studentCollege);
                 if (!matchesCollege) return false;
             }
-            
+
             if (filters.years.length) {
                 const studentYear = normalizeText(student.Current_Year);
                 const matchesYear = filters.years.some(y => normalizeText(y) === studentYear);
                 if (!matchesYear) return false;
             }
-            
+
             if (filters.districts.length) {
                 const studentDistrict = normalizeText(student.District);
                 const matchesDistrict = filters.districts.some(d => normalizeText(d) === studentDistrict);
@@ -282,7 +292,7 @@ export default function Records() {
             `Are you sure you want to delete "${name}"?\nThis cannot be undone.`,
             'Delete Student'
         );
-        
+
         if (!confirmed) return;
 
         setIsUpdating(true);

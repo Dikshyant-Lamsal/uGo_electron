@@ -53,14 +53,10 @@ export default function RecordView() {
             "Books_Total",
             "Uniform_Total"
         ],
-        "Year-wise Fee Details": [
-            "Year_1_Fee",
+        "Year-wise Payments": [
             "Year_1_Payment",
-            "Year_2_Fee",
             "Year_2_Payment",
-            "Year_3_Fee",
             "Year_3_Payment",
-            "Year_4_Fee",
             "Year_4_Payment"
         ],
         "Academic Performance": [
