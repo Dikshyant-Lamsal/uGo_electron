@@ -4,14 +4,34 @@ import { join } from 'path';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import icon from '../../resources/icon.png?asset';
 import { existsSync } from 'fs';
+import dotenv from 'dotenv';
 
-// // Import Excel backend service
-// import './excelService.js';
+// ============================================
+// LOAD ENVIRONMENT VARIABLES
+// ============================================
+dotenv.config();
 
-//Import Google Sheet Backend Service
-import './googleSheetService.js';
+// ============================================
+// IMPORT SERVICES
+// ============================================
 
-let mainWindow = null; // ✅ Store main window reference
+// NEW: PostgreSQL Database Service (replaces Google Sheets)
+import './services/databaseService.js';
+
+// NEW: Cloudinary Photos Service (replaces local photo storage)
+import './services/photosService.js';
+
+// PDF Export Service
+import './services/pdfService.js';
+
+// OLD: Google Sheets Service (commented out - keep as backup)
+// import './googleSheetService.js';
+
+// ============================================
+// WINDOW MANAGEMENT
+// ============================================
+
+let mainWindow = null;
 
 // Register custom protocol BEFORE app.whenReady()
 protocol.registerSchemesAsPrivileged([
@@ -45,7 +65,7 @@ function createWindow() {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show();
-    mainWindow.focus(); // ✅ Ensure focus on show
+    mainWindow.focus();
   });
 
   mainWindow.webContents.setWindowOpenHandler(details => {
@@ -53,7 +73,7 @@ function createWindow() {
     return { action: 'deny' };
   });
 
-  // ✅ Handle focus events
+  // Handle focus events
   mainWindow.on('focus', () => {
     console.log('✅ Window focused');
   });
@@ -62,7 +82,7 @@ function createWindow() {
     console.log('⚠️ Window blurred');
   });
 
-  // ✅ Auto-restore focus after losing it
+  // Auto-restore focus after losing it
   mainWindow.on('restore', () => {
     mainWindow.focus();
   });
@@ -74,11 +94,15 @@ function createWindow() {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'));
   }
 
-  // ✅ Clear reference on close
+  // Clear reference on close
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
 }
+
+// ============================================
+// APP LIFECYCLE
+// ============================================
 
 app.whenReady().then(() => {
   // Register custom protocol handler using modern API
@@ -133,7 +157,7 @@ app.whenReady().then(() => {
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window);
 
-    // ✅ Auto-restore focus when window becomes visible
+    // Auto-restore focus when window becomes visible
     window.on('show', () => {
       setTimeout(() => window.focus(), 100);
     });
@@ -145,7 +169,7 @@ app.whenReady().then(() => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
     } else if (mainWindow) {
-      mainWindow.focus(); // ✅ Focus on activate
+      mainWindow.focus();
     }
   });
 });
@@ -156,7 +180,13 @@ app.on('window-all-closed', () => {
   }
 });
 
-// ✅ Helper function to restore focus
+// ============================================
+// IPC HANDLERS
+// ============================================
+
+/**
+ * Helper function to restore focus
+ */
 function restoreFocus() {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.focus();
@@ -164,7 +194,9 @@ function restoreFocus() {
   }
 }
 
-
+/**
+ * Toggle DevTools
+ */
 ipcMain.on('toggle-devtools', () => {
   console.log('🔧 Simulating Ctrl+Shift+I twice');
 
@@ -206,7 +238,9 @@ ipcMain.on('toggle-devtools', () => {
   }, 200);
 });
 
-// Add this with your other ipcMain handlers
+/**
+ * Show message dialog
+ */
 ipcMain.handle('show-message', async (event, { type, title, message, buttons }) => {
   const targetWindow = BrowserWindow.getFocusedWindow() || mainWindow || BrowserWindow.getAllWindows()[0];
 
@@ -226,5 +260,31 @@ ipcMain.handle('show-message', async (event, { type, title, message, buttons }) 
   return result;
 });
 
-// Test IPC
+/**
+ * Test IPC
+ */
 ipcMain.on('ping', () => console.log('pong'));
+
+// ============================================
+// STARTUP LOGGING
+// ============================================
+
+console.log('\n' + '='.repeat(60));
+console.log('🚀 APPLICATION STARTUP');
+console.log('='.repeat(60));
+console.log(`📦 App Version: ${app.getVersion()}`);
+console.log(`🖥️  Platform: ${process.platform}`);
+console.log(`📁 App Path: ${app.getAppPath()}`);
+console.log(`🔧 Node Version: ${process.versions.node}`);
+console.log(`⚡ Electron Version: ${process.versions.electron}`);
+console.log(`🌐 Chrome Version: ${process.versions.chrome}`);
+console.log('');
+console.log('🔌 Services Loaded:');
+console.log('   ✅ Database Service (PostgreSQL)');
+console.log('   ✅ Photos Service (Cloudinary)');
+console.log('   ✅ PDF Service');
+console.log('');
+console.log('📊 Environment:');
+console.log(`   Database: ${process.env.DATABASE_URL ? '✅ Connected' : '❌ Not configured'}`);
+console.log(`   Cloudinary: ${process.env.CLOUDINARY_CLOUD_NAME ? '✅ Connected' : '❌ Not configured'}`);
+console.log('='.repeat(60) + '\n');

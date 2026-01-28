@@ -140,13 +140,15 @@ class StudentAPI {
     }
 
     /**
- * Save student photo
- * @param {number} id - Student ID
- * @param {File} file - Photo file
- * @returns {Promise<{success: boolean, message: string}>}
- */
-    async savePhoto(id, file) {
+         * Save student photo
+         * @param {string} studentId - Student_ID (e.g., "UGO_C1_257")
+         * @param {File} file - Photo file
+         * @returns {Promise<{success: boolean, message: string}>}
+         */
+    async savePhoto(studentId, file) {
         try {
+            console.log('💾 Saving photo for student:', studentId);
+
             // Read file as base64
             const reader = new FileReader();
 
@@ -155,12 +157,15 @@ class StudentAPI {
                     const base64Data = reader.result.split(',')[1]; // Remove data:image/jpeg;base64,
                     const extension = file.name.split('.').pop().toLowerCase();
 
+                    console.log('📤 Uploading to API...', { studentId, extension, size: base64Data.length });
+
                     const result = await globalThis.api.photos.savePhoto({
-                        id,
+                        id: studentId, // ✅ Pass Student_ID
                         photoData: base64Data,
                         extension
                     });
 
+                    console.log('✅ Photo save result:', result);
                     resolve(result);
                 };
 
@@ -175,11 +180,13 @@ class StudentAPI {
 
     /**
      * Check if photo exists for student
-     * @param {number} id - Student ID
+     * @param {string} studentId - Student_ID (e.g., "UGO_C1_257")
      */
-    async photoExists(id) {
+    async photoExists(studentId) {
         try {
-            const result = await globalThis.api.photos.photoExists(id);
+            console.log('🔍 Checking if photo exists for:', studentId);
+            const result = await globalThis.api.photos.photoExists(studentId);
+            console.log('📸 Photo exists result:', result);
             return result;
         } catch (error) {
             console.error('Error checking photo:', error);
@@ -189,31 +196,36 @@ class StudentAPI {
 
     /**
      * Get photo path for student
-     * @param {number} id - Student ID
+     * @param {string} studentId - Student_ID (e.g., "UGO_C1_257")
      */
-    async getPhotoPath(id) {
+    async getPhotoPath(studentId) {
         try {
-            const result = await globalThis.api.photos.getPhotoPath(id);
+            console.log('🖼️ Getting photo path for:', studentId);
+            const result = await globalThis.api.photos.getPhotoPath(studentId);
+            console.log('📸 Photo path result:', result);
             return result;
         } catch (error) {
             console.error('Error getting photo path:', error);
-            return { success: false, error: error.message };
+            return { success: false, error: error.message, path: null };
         }
     }
 
     /**
      * Delete student photo
-     * @param {number} id - Student ID
+     * @param {string} studentId - Student_ID (e.g., "UGO_C1_257")
      */
-    async deletePhoto(id) {
+    async deletePhoto(studentId) {
         try {
-            const result = await window.api.photos.deletePhoto(id);
+            console.log('🗑️ Deleting photo for:', studentId);
+            const result = await window.api.photos.deletePhoto(studentId);
+            console.log('✅ Delete result:', result);
             return result;
         } catch (error) {
             console.error('Error deleting photo:', error);
             return { success: false, error: error.message };
         }
     }
+
 
     // ============================================
     // PARTICIPATION OPERATIONS
@@ -373,9 +385,9 @@ class StudentAPI {
         }
     }
 
-        /**
-     * Run Python consolidator script
-     */
+    /**
+ * Run Python consolidator script
+ */
     async runConsolidator() {
         try {
             const result = await window.api.excel.runConsolidator();

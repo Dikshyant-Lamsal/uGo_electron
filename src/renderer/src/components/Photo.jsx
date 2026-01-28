@@ -1,4 +1,5 @@
 /* eslint-disable prettier/prettier */
+// FIXED Photo Component with Placeholder
 import { useState, useEffect } from 'react';
 import studentAPI from '../api/studentApi';
 import { showError, showSuccess, showConfirm, showWarning } from '../utils/dialog';
@@ -7,19 +8,30 @@ import icon from '../assets/logo/icon.png';
 function Photo({ studentId, studentName, studentID, editable = false, onPhotoChange }) {
     const [photoUrl, setPhotoUrl] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [imageError, setImageError] = useState(false);
 
     useEffect(() => {
         loadPhoto();
-    }, [studentId]);
+    }, [studentId, studentID]);
 
     const loadPhoto = async () => {
         setLoading(true);
-        // Use Student_ID if available, otherwise fall back to database id
+        setImageError(false);
+
         const photoIdentifier = studentID || studentId;
+
+        console.log('📸 Loading photo for:', photoIdentifier);
+
         const result = await studentAPI.getPhotoPath(photoIdentifier);
-        if (result.success) {
+
+        console.log('📸 Photo result:', result);
+
+        if (result.success && result.path) {
             setPhotoUrl(result.path);
+        } else {
+            setPhotoUrl(null);
         }
+
         setLoading(false);
     };
 
@@ -39,12 +51,15 @@ function Photo({ studentId, studentName, studentID, editable = false, onPhotoCha
             return;
         }
 
-        // Upload photo using Student_ID if available
         const photoIdentifier = studentID || studentId;
+
+        console.log('📤 Uploading photo for:', photoIdentifier);
+
         const result = await studentAPI.savePhoto(photoIdentifier, file);
+
         if (result.success) {
             await showSuccess('Photo uploaded successfully!');
-            loadPhoto(); // Reload photo
+            await loadPhoto();
             if (onPhotoChange) onPhotoChange();
         } else {
             await showError('Failed to upload photo: ' + result.error);
@@ -57,13 +72,20 @@ function Photo({ studentId, studentName, studentID, editable = false, onPhotoCha
 
         const photoIdentifier = studentID || studentId;
         const result = await studentAPI.deletePhoto(photoIdentifier);
+
         if (result.success) {
             await showSuccess('Photo deleted successfully!');
             setPhotoUrl(null);
+            setImageError(false);
             if (onPhotoChange) onPhotoChange();
         } else {
             await showError('Failed to delete photo: ' + result.error);
         }
+    };
+
+    const handleImageError = () => {
+        console.error('Image failed to load:', photoUrl);
+        setImageError(true);
     };
 
     if (loading) {
@@ -76,21 +98,23 @@ function Photo({ studentId, studentName, studentID, editable = false, onPhotoCha
 
     return (
         <div className="photo-wrapper">
-            {photoUrl ? (
+            {photoUrl && !imageError ? (
                 <img
                     src={photoUrl}
                     alt={studentName}
                     className="student-photo"
+                    onError={handleImageError}
                 />
             ) : (
                 <div className="photo-placeholder">
-                    <img src={icon} alt={studentName} className="logo" />
+                    <img src={icon} alt="Placeholder" className="logo" />
                 </div>
             )}
+
             {editable && (
                 <div className="photo-actions">
                     <label className="btn-upload-photo">
-                        {photoUrl ? '📷 Change Photo' : '📷 Upload Photo'}
+                        {photoUrl && !imageError ? '📷 Change Photo' : '📷 Upload Photo'}
                         <input
                             type="file"
                             accept="image/*"
@@ -98,7 +122,7 @@ function Photo({ studentId, studentName, studentID, editable = false, onPhotoCha
                             style={{ display: 'none' }}
                         />
                     </label>
-                    {photoUrl && (
+                    {photoUrl && !imageError && (
                         <button
                             className="btn-delete-photo"
                             onClick={handleDelete}
