@@ -5,12 +5,6 @@
   "main": "./out/main/index.js",
   "author": "dikshyant-lamsal",
   "homepage": "https://electron-vite.org",
-  "build": {
-    "appId": "diks.ugoapp",
-    "mac": {
-      "category": "ugo.app.category.electron"
-    }
-  },
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",
@@ -19,7 +13,7 @@
     "build": "electron-vite build",
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "npm run build && electron-builder --dir",
-    "build:win": "npm run build && electron-builder --win",
+    "build:win": "npm run build && electron-builder --win --x64",
     "build:mac": "npm run build && electron-builder --mac",
     "build:linux": "npm run build && electron-builder --linux"
   },
@@ -51,5 +45,46 @@
     "react-dom": "^19.2.1",
     "tailwindcss": "^4.1.18",
     "vite": "^7.2.6"
+  },
+  "build": {
+    "appId": "com.ugo.scholarship",
+    "productName": "UGO Scholarship Manager",
+    "copyright": "Copyright © 2025",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "out/**/*",
+      "package.json",
+      ".env"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "UGO Scholarship Manager",
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true
+    },
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/pg/**/*",
+      ".env"
+    ],
+    "compression": "normal"
   }
 }

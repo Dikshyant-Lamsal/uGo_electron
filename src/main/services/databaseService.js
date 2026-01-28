@@ -1,7 +1,8 @@
 /* eslint-disable prettier/prettier */
 // Database Service - PostgreSQL with separate cohort tables
-import { ipcMain, dialog } from 'electron';
+import { ipcMain, dialog, app } from 'electron';
 import pkg from 'pg';
+import path from 'path';
 const { Pool } = pkg;
 import XLSX from 'xlsx';
 import dotenv from 'dotenv';
@@ -9,7 +10,17 @@ import dotenv from 'dotenv';
 // ============================================
 // LOAD ENVIRONMENT VARIABLES FIRST
 // ============================================
-dotenv.config();
+let envPath;
+if (app.isPackaged) {
+  // Production: .env is in resources/app.asar.unpacked/
+  envPath = path.join(process.resourcesPath, 'app.asar.unpacked', '.env');
+} else {
+  // Development: .env is in project root
+  envPath = path.join(__dirname, '..', '..', '.env');
+}
+
+console.log('🔍 Loading .env from:', envPath);
+dotenv.config({ path: envPath });
 
 // ============================================
 // CONFIGURATION
@@ -396,7 +407,7 @@ ipcMain.handle('excel:addStudent', async (event, studentData) => {
     // Get the next global serial number
     const nextSerial = await getNextStudentSerial(client);
     const studentId = `UGO_${cohort}_${String(nextSerial).padStart(3, '0')}`;
-    
+
     console.log(`🆔 Generated student ID: ${studentId} (serial: ${nextSerial})`);
 
     // Insert into master_database

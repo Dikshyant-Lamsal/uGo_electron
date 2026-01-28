@@ -1,6 +1,6 @@
 /* eslint-disable prettier/prettier */
 // Photos Service - Cloudinary cloud storage
-import { ipcMain, BrowserWindow } from 'electron';
+import { ipcMain, BrowserWindow, app } from 'electron';
 import { v2 as cloudinary } from 'cloudinary';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -9,11 +9,27 @@ import dotenv from 'dotenv';
 import pkg from 'pg';
 
 const { Pool } = pkg;
+
+// ============================================
+// FIX __dirname FOR ES MODULES
+// ============================================
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Load environment variables
-dotenv.config();
+// ============================================
+// LOAD ENVIRONMENT VARIABLES - FIXED FOR PRODUCTION
+// ============================================
+let envPath;
+if (app.isPackaged) {
+  // Production: .env is in resources/app.asar.unpacked/
+  envPath = path.join(process.resourcesPath, 'app.asar.unpacked', '.env');
+} else {
+  // Development: .env is in project root
+  envPath = path.join(__dirname, '..', '..', '.env');
+}
+
+console.log('🔍 [Photos] Loading .env from:', envPath);
+dotenv.config({ path: envPath });
 
 // ============================================
 // CONFIGURATION
@@ -35,10 +51,24 @@ const pool = new Pool({
   connectionTimeoutMillis: 5000,
 });
 
-// Local backup path (optional)
-const photosPath = path.resolve(__dirname, '../../data/photos');
+// Local backup path (optional) - FIX FOR PRODUCTION
+let photosPath;
+if (app.isPackaged) {
+  // Production: Use app data directory instead of trying to create in resources
+  photosPath = path.join(app.getPath('userData'), 'photos');
+} else {
+  // Development: Use data folder in project
+  photosPath = path.resolve(__dirname, '../../data/photos');
+}
+
+// Create photos directory if it doesn't exist
 if (!fs.existsSync(photosPath)) {
-  fs.mkdirSync(photosPath, { recursive: true });
+  try {
+    fs.mkdirSync(photosPath, { recursive: true });
+    console.log(`✅ Created photos directory: ${photosPath}`);
+  } catch (err) {
+    console.error('⚠️ Could not create photos directory:', err);
+  }
 }
 
 // ============================================
@@ -67,10 +97,15 @@ ipcMain.handle('photos:save', async (event, { id, photoData, extension }) => {
   try {
     // Convert base64 to buffer
     const buffer = Buffer.from(photoData, 'base64');
-    
+
     // Optional: Save local backup
-    const localPath = path.join(photosPath, `${id}.${extension}`);
-    fs.writeFileSync(localPath, buffer);
+    try {
+      const localPath = path.join(photosPath, `${id}.${extension}`);
+      fs.writeFileSync(localPath, buffer);
+    } catch (localErr) {
+      console.warn('⚠️ Could not save local backup:', localErr);
+      // Continue even if local save fails
+    }
 
     // Upload to Cloudinary
     const result = await new Promise((resolve, reject) => {
@@ -164,7 +199,7 @@ ipcMain.handle('photos:exists', async (event, id) => {
 
     // If not in database, check Cloudinary directly
     const publicId = `student-photos/student_${id}`;
-    
+
     try {
       await cloudinary.api.resource(publicId);
 
@@ -277,12 +312,16 @@ ipcMain.handle('photos:delete', async (event, id) => {
     );
 
     // Optional: Delete local backup
-    const extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-    for (const ext of extensions) {
-      const localPath = path.join(photosPath, `${id}.${ext}`);
-      if (fs.existsSync(localPath)) {
-        fs.unlinkSync(localPath);
+    try {
+      const extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+      for (const ext of extensions) {
+        const localPath = path.join(photosPath, `${id}.${ext}`);
+        if (fs.existsSync(localPath)) {
+          fs.unlinkSync(localPath);
+        }
       }
+    } catch (localErr) {
+      console.warn('⚠️ Could not delete local backup:', localErr);
     }
 
     console.log(`✅ Deleted photo for student ID ${id}`);
