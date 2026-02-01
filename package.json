@@ -20,6 +20,10 @@
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^7.3.7",
+    "@mui/x-charts": "^8.26.0",
     "chokidar": "^5.0.0",
     "cloudinary": "^2.9.0",
     "dotenv": "^17.2.3",

@@ -17,12 +17,7 @@ function Header() {
 
   return (
     <header className="app-header">
-      <nav className="logo">
-        <Link to="/home" className="logo-link">
-          <img src={icon} alt="ugo logo" className="logo-image" />
-          <span className="logo-text">uGo Nepal Student Management App</span>
-        </Link>
-      </nav>
+
 
       <nav className="actions header-actions">
         <div className="action">

@@ -4,26 +4,39 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
-  background-image: url('./wavy-lines.svg');
-  background-size: cover;
+  min-height: 100vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  /* Professional gradient background */
+  background: linear-gradient(135deg, var(--color-background) 0%, var(--color-background-soft) 100%);
   user-select: none;
+}
+
+/* Optional: Subtle pattern overlay */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.03;
+  background-image: 
+    repeating-linear-gradient(45deg, transparent, transparent 10px, var(--color-text-1) 10px, var(--color-text-1) 11px),
+    repeating-linear-gradient(-45deg, transparent, transparent 10px, var(--color-text-1) 10px, var(--color-text-1) 11px);
+  pointer-events: none;
+  z-index: 0;
 }
 
 code {
   font-weight: 600;
   padding: 3px 5px;
-  border-radius: 2px;
+  border-radius: 4px;
   background-color: var(--color-background-mute);
-  font-family:
-    ui-monospace,
-    SFMono-Regular,
-    SF Mono,
-    Menlo,
-    Consolas,
-    Liberation Mono,
-    monospace;
+  border: 1px solid var(--color-border);
+  font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace;
   font-size: 85%;
+  color: var(--color-accent);
 }
 
 #root {
@@ -31,7 +44,11 @@ code {
   align-items: center;
   justify-content: center;
   flex-direction: column;
-  margin-bottom: 80px;
+  padding: 40px 20px;
+  position: relative;
+  z-index: 1;
+  max-width: auto;
+  margin: 0 auto;
 }
 
 .logo {
@@ -40,40 +57,51 @@ code {
   height: 128px;
   width: 128px;
   will-change: filter;
-  transition: filter 300ms;
+  transition: filter 300ms, transform 300ms;
+  filter: drop-shadow(0 4px 8px var(--color-shadow));
 }
 
 .logo:hover {
-  filter: drop-shadow(0 0 1.2em #6988e6aa);
+  filter: drop-shadow(0 0 1.5em var(--color-accent)) drop-shadow(0 8px 16px var(--color-shadow));
+  transform: scale(1.05);
 }
 
 .creator {
   font-size: 14px;
   line-height: 16px;
-  color: var(--ev-c-text-2);
+  color: var(--color-text-2);
   font-weight: 600;
   margin-bottom: 10px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
 }
 
 .text {
-  font-size: 28px;
-  color: var(--ev-c-text-1);
+  font-size: 32px;
+  color: var(--color-text-1);
   font-weight: 700;
-  line-height: 32px;
+  line-height: 1.3;
   text-align: center;
   margin: 0 10px;
   padding: 16px 0;
+  background: linear-gradient(135deg, var(--color-text-1), var(--color-accent));
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .tip {
   font-size: 16px;
   line-height: 24px;
-  color: var(--ev-c-text-2);
-  font-weight: 600;
+  color: var(--color-text-2);
+  font-weight: 500;
+  text-align: center;
+  max-width: 600px;
+  padding: 0 20px;
 }
 
 .react {
-  background: -webkit-linear-gradient(315deg, #087ea4 55%, #7c93ee);
+  background: linear-gradient(315deg, #087ea4 25%, #7c93ee 75%);
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -85,7 +113,8 @@ code {
   padding-top: 32px;
   margin: -6px;
   flex-wrap: wrap;
-  justify-content: flex-start;
+  justify-content: center;
+  gap: 12px;
 }
 
 .action {
@@ -96,56 +125,86 @@ code {
 .action a {
   cursor: pointer;
   text-decoration: none;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 1px solid transparent;
   text-align: center;
   font-weight: 600;
   white-space: nowrap;
-  border-radius: 20px;
-  padding: 0 20px;
-  line-height: 38px;
+  border-radius: 8px;
+  padding: 0 24px;
+  line-height: 40px;
   font-size: 14px;
-  border-color: var(--ev-button-alt-border);
+  border-color: var(--color-border);
   color: var(--ev-button-alt-text);
   background-color: var(--ev-button-alt-bg);
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px var(--color-shadow);
 }
 
 .action a:hover {
-  border-color: var(--ev-button-alt-hover-border);
-  color: var(--ev-button-alt-hover-text);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
   background-color: var(--ev-button-alt-hover-bg);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px var(--color-shadow);
+}
+
+.action a:active {
+  transform: translateY(0);
 }
 
 .versions {
-  position: absolute;
+  position: fixed;
   bottom: 30px;
-  margin: 0 auto;
-  padding: 15px 0;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 0;
   font-family: 'Menlo', 'Lucida Console', monospace;
   display: inline-flex;
   overflow: hidden;
   align-items: center;
-  border-radius: 22px;
-  background-color: #202127;
+  border-radius: 12px;
+  background-color: var(--color-background-soft);
+  border: 1px solid var(--color-border);
   backdrop-filter: blur(24px);
+  box-shadow: 0 4px 12px var(--color-shadow);
+  z-index: 100;
 }
 
 .versions li {
   display: block;
   float: left;
-  border-right: 1px solid var(--ev-c-gray-1);
+  border-right: 1px solid var(--color-border);
   padding: 0 20px;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 14px;
-  opacity: 0.8;
-  &:last-child {
-    border: none;
-  }
+  color: var(--color-text-2);
+  font-weight: 500;
 }
 
+.versions li:last-child {
+  border: none;
+}
+
+.versions li:hover {
+  color: var(--color-accent);
+}
+
+/* Responsive Design */
 @media (max-width: 720px) {
   .text {
-    font-size: 20px;
+    font-size: 24px;
+  }
+
+  .logo {
+    height: 96px;
+    width: 96px;
+  }
+
+  #root {
+    padding: 30px 15px;
   }
 }
 
@@ -153,11 +212,65 @@ code {
   .versions {
     display: none;
   }
+
+  .text {
+    font-size: 20px;
+  }
+
+  .actions {
+    flex-direction: column;
+    width: 100%;
+    padding: 24px 0;
+  }
+
+  .action {
+    width: 100%;
+  }
+
+  .action a {
+    width: 100%;
+  }
 }
 
 @media (max-width: 350px) {
-  .tip,
-  .actions {
-    display: none;
+  .tip {
+    font-size: 14px;
+  }
+
+  .logo {
+    height: 80px;
+    width: 80px;
   }
 }
+
+/* Light mode enhancements */
+:root.light-mode body {
+  background: linear-gradient(135deg, #ffffff 0%, #f9fafb 50%, #f3f4f6 100%);
+}
+
+/* Dark mode enhancements */
+:root:not(.light-mode) body {
+  background: linear-gradient(135deg, #1b1b1f 0%, #222222 50%, #2a2a2f 100%);
+}
+
+/* Add subtle animation for professional feel */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+#root > * {
+  animation: fadeInUp 0.6s ease-out backwards;
+}
+
+#root > *:nth-child(1) { animation-delay: 0.1s; }
+#root > *:nth-child(2) { animation-delay: 0.2s; }
+#root > *:nth-child(3) { animation-delay: 0.3s; }
+#root > *:nth-child(4) { animation-delay: 0.4s; }
+#root > *:nth-child(5) { animation-delay: 0.5s; }

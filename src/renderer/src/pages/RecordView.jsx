@@ -14,8 +14,9 @@ export default function RecordView() {
     const [student, setStudent] = useState(null);
     const [loading, setLoading] = useState(true);
     const [showParticipations, setShowParticipations] = useState(true);
-    const [photoKey, setPhotoKey] = useState(0); // ✅ Key to force photo refresh
+    const [photoKey, setPhotoKey] = useState(0);
     const [savingPdf, setSavingPdf] = useState(false);
+    
     // Fetch student data on mount
     useEffect(() => {
         const fetchStudent = async () => {
@@ -264,9 +265,7 @@ export default function RecordView() {
             .join('');
     };
 
-    // ✅ Callback when photo changes
     const handlePhotoChange = () => {
-        // Force photo component to re-render
         setPhotoKey(prev => prev + 1);
     };
 
@@ -274,10 +273,31 @@ export default function RecordView() {
     if (loading) {
         return (
             <div className="record-view">
-                <Header />
-                <div style={{ textAlign: 'center', padding: '50px' }}>
-                    <p>Loading student data...</p>
+                
+                <div className="loading-container" style={{ 
+                    textAlign: 'center', 
+                    padding: '50px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '20px'
+                }}>
+                    <div className="spinner" style={{
+                        width: '50px',
+                        height: '50px',
+                        border: '4px solid #f3f3f3',
+                        borderTop: '4px solid #3498db',
+                        borderRadius: '50%',
+                        animation: 'spin 1s linear infinite'
+                    }}></div>
+                    <p style={{ color: '#666', fontSize: '16px' }}>Loading student data...</p>
                 </div>
+                <style>{`
+                    @keyframes spin {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
+                    }
+                `}</style>
             </div>
         );
     }
@@ -296,23 +316,48 @@ export default function RecordView() {
         <div className="record-view">
             <div className="record-view-header no-print">
                 <div className="header-actions-row">
-                    <button className="btn-back" onClick={() => navigate(-1)}>
+                    <button 
+                        className="btn-back" 
+                        onClick={() => navigate(-1)}
+                        disabled={savingPdf}
+                    >
                         ← Back
                     </button>
                     <div style={{ display: 'flex', gap: '10px' }}>
                         <button
                             className="btn-edit"
                             onClick={() => navigate(`/edit/${id}`)}
+                            disabled={savingPdf}
                         >
                             ✏️ Edit Student
                         </button>
-                        {/* ✅ Updated buttons */}
                         <button
                             className="btn-save-pdf"
                             onClick={handleSavePDF}
                             disabled={savingPdf}
+                            style={{
+                                opacity: savingPdf ? 0.6 : 1,
+                                cursor: savingPdf ? 'not-allowed' : 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px'
+                            }}
                         >
-                            {savingPdf ? '⏳ Saving...' : '🖨️ Print'}
+                            {savingPdf ? (
+                                <>
+                                    <div className="btn-spinner" style={{
+                                        width: '14px',
+                                        height: '14px',
+                                        border: '2px solid #ffffff',
+                                        borderTop: '2px solid transparent',
+                                        borderRadius: '50%',
+                                        animation: 'spin 0.8s linear infinite'
+                                    }}></div>
+                                    Saving...
+                                </>
+                            ) : (
+                                <>🖨️ Print</>
+                            )}
                         </button>
                     </div>
                 </div>
@@ -342,25 +387,25 @@ export default function RecordView() {
                     </div>
                 </div>
                 <div className="photo-container">
-                    {/* ✅ Enable editing and add callback */}
                     <Photo
                         key={photoKey}
                         studentId={student.id}
-                        studentID={student.Student_ID}  // ✅ Pass Student_ID
+                        studentID={student.Student_ID}
                         studentName={student.Full_Name}
-                        editable={true}
+                        editable={!savingPdf}
                         onPhotoChange={handlePhotoChange}
                     />
                 </div>
             </div>
 
-            {/* ✅ PARTICIPATIONS SECTION - Before other sections */}
+            {/* Participations Section */}
             <div className="record-section participations-section-wrapper no-print">
                 <div className="participations-section-header">
                     <h2 className="record-section-title">📋 Event Participations</h2>
                     <button
                         className="btn-toggle-participations"
                         onClick={() => setShowParticipations(!showParticipations)}
+                        disabled={savingPdf}
                     >
                         {showParticipations ? '▼ Hide' : '▶ Show'}
                     </button>
@@ -392,6 +437,13 @@ export default function RecordView() {
                 <p>U-Go Scholarship Management System</p>
                 <p>This is an official student record</p>
             </div>
+
+            <style>{`
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+            `}</style>
         </div>
     );
 }

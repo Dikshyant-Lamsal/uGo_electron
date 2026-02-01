@@ -101,7 +101,7 @@ function TestBackend() {
 
     return (
         <div className="test-backend-page">
-            <Header />
+            
             <h1>Backend API Test Page</h1>
             
             <div className="test-backend-buttons">

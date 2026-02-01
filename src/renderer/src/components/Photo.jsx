@@ -1,5 +1,4 @@
 /* eslint-disable prettier/prettier */
-// FIXED Photo Component with Placeholder
 import { useState, useEffect } from 'react';
 import studentAPI from '../api/studentApi';
 import { showError, showSuccess, showConfirm, showWarning } from '../utils/dialog';
@@ -9,6 +8,8 @@ function Photo({ studentId, studentName, studentID, editable = false, onPhotoCha
     const [photoUrl, setPhotoUrl] = useState(null);
     const [loading, setLoading] = useState(true);
     const [imageError, setImageError] = useState(false);
+    const [uploading, setUploading] = useState(false);
+    const [deleting, setDeleting] = useState(false);
 
     useEffect(() => {
         loadPhoto();
@@ -55,6 +56,7 @@ function Photo({ studentId, studentName, studentID, editable = false, onPhotoCha
 
         console.log('📤 Uploading photo for:', photoIdentifier);
 
+        setUploading(true);
         const result = await studentAPI.savePhoto(photoIdentifier, file);
 
         if (result.success) {
@@ -64,6 +66,7 @@ function Photo({ studentId, studentName, studentID, editable = false, onPhotoCha
         } else {
             await showError('Failed to upload photo: ' + result.error);
         }
+        setUploading(false);
     };
 
     const handleDelete = async () => {
@@ -71,6 +74,8 @@ function Photo({ studentId, studentName, studentID, editable = false, onPhotoCha
         if (!confirmed) return;
 
         const photoIdentifier = studentID || studentId;
+        
+        setDeleting(true);
         const result = await studentAPI.deletePhoto(photoIdentifier);
 
         if (result.success) {
@@ -81,6 +86,7 @@ function Photo({ studentId, studentName, studentID, editable = false, onPhotoCha
         } else {
             await showError('Failed to delete photo: ' + result.error);
         }
+        setDeleting(false);
     };
 
     const handleImageError = () => {
@@ -88,38 +94,111 @@ function Photo({ studentId, studentName, studentID, editable = false, onPhotoCha
         setImageError(true);
     };
 
+    const isProcessing = uploading || deleting;
+
     if (loading) {
         return (
-            <div className="photo-placeholder">
-                Loading photo...
+            <div className="photo-placeholder" style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '10px'
+            }}>
+                <div className="spinner" style={{
+                    width: '40px',
+                    height: '40px',
+                    border: '4px solid #f3f3f3',
+                    borderTop: '4px solid #3b82f6',
+                    borderRadius: '50%',
+                    animation: 'spin 1s linear infinite'
+                }}></div>
+                <span style={{ fontSize: '14px', color: '#666' }}>Loading photo...</span>
+                <style>{`
+                    @keyframes spin {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
+                    }
+                `}</style>
             </div>
         );
     }
 
     return (
         <div className="photo-wrapper">
-            {photoUrl && !imageError ? (
-                <img
-                    src={photoUrl}
-                    alt={studentName}
-                    className="student-photo"
-                    onError={handleImageError}
-                />
-            ) : (
-                <div className="photo-placeholder">
-                    <img src={icon} alt="Placeholder" className="logo" />
-                </div>
-            )}
+            {/* Photo Display with Upload/Delete Overlay */}
+            <div style={{ position: 'relative' }}>
+                {photoUrl && !imageError ? (
+                    <img
+                        src={photoUrl}
+                        alt={studentName}
+                        className="student-photo"
+                        onError={handleImageError}
+                        style={{
+                            opacity: isProcessing ? 0.5 : 1,
+                            transition: 'opacity 0.3s'
+                        }}
+                    />
+                ) : (
+                    <div 
+                        className="photo-placeholder"
+                        style={{
+                            opacity: isProcessing ? 0.5 : 1,
+                            transition: 'opacity 0.3s'
+                        }}
+                    >
+                        <img src={icon} alt="Placeholder" className="logo" />
+                    </div>
+                )}
+
+                {/* Processing Overlay */}
+                {isProcessing && (
+                    <div style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                        borderRadius: '8px',
+                        gap: '8px'
+                    }}>
+                        <div className="spinner" style={{
+                            width: '30px',
+                            height: '30px',
+                            border: '3px solid #e5e7eb',
+                            borderTop: '3px solid #3b82f6',
+                            borderRadius: '50%',
+                            animation: 'spin 1s linear infinite'
+                        }}></div>
+                        <span style={{ fontSize: '13px', color: '#1f2937', fontWeight: '500' }}>
+                            {uploading ? 'Uploading...' : 'Deleting...'}
+                        </span>
+                    </div>
+                )}
+            </div>
 
             {editable && (
                 <div className="photo-actions">
-                    <label className="btn-upload-photo">
+                    <label 
+                        className="btn-upload-photo"
+                        style={{
+                            opacity: isProcessing ? 0.6 : 1,
+                            cursor: isProcessing ? 'not-allowed' : 'pointer',
+                            pointerEvents: isProcessing ? 'none' : 'auto'
+                        }}
+                    >
                         {photoUrl && !imageError ? '📷 Change Photo' : '📷 Upload Photo'}
                         <input
                             type="file"
                             accept="image/*"
                             onChange={handleFileChange}
                             style={{ display: 'none' }}
+                            disabled={isProcessing}
                         />
                     </label>
                     {photoUrl && !imageError && (
@@ -127,12 +206,42 @@ function Photo({ studentId, studentName, studentID, editable = false, onPhotoCha
                             className="btn-delete-photo"
                             onClick={handleDelete}
                             type="button"
+                            disabled={isProcessing}
+                            style={{
+                                opacity: isProcessing ? 0.6 : 1,
+                                cursor: isProcessing ? 'not-allowed' : 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '6px'
+                            }}
                         >
-                            🗑️ Delete
+                            {deleting ? (
+                                <>
+                                    <div className="btn-spinner" style={{
+                                        width: '12px',
+                                        height: '12px',
+                                        border: '2px solid #ffffff',
+                                        borderTop: '2px solid transparent',
+                                        borderRadius: '50%',
+                                        animation: 'spin 0.8s linear infinite'
+                                    }}></div>
+                                    Deleting...
+                                </>
+                            ) : (
+                                <>🗑️ Delete</>
+                            )}
                         </button>
                     )}
                 </div>
             )}
+
+            <style>{`
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+            `}</style>
         </div>
     );
 }

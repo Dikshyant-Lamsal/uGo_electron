@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Header from "../components/Header";
-import Photo from "../components/Photo"; // ✅ Import Photo component
+import Photo from "../components/Photo";
 import ParticipationsList from "../components/ParticipationsList";
 import studentAPI from "../api/studentApi";
 import { showWarning, showSuccess, showError } from "../utils/dialog";
@@ -16,9 +16,11 @@ function EditStudent() {
             state: { fromStudentDetail: true }
         });
     };
+    
     const [student, setStudent] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [photoKey, setPhotoKey] = useState(0); // ✅ Key to force photo refresh
+    const [photoKey, setPhotoKey] = useState(0);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const [formData, setFormData] = useState({
         Full_Name: "",
@@ -130,7 +132,6 @@ function EditStudent() {
         }));
     };
 
-    // ✅ Callback when photo changes
     const handlePhotoChange = () => {
         setPhotoKey(prev => prev + 1);
     };
@@ -143,16 +144,24 @@ function EditStudent() {
             return;
         }
 
-        const result = await studentAPI.updateStudent(parseInt(id), formData);
+        setIsSubmitting(true);
 
-        if (result.success) {
-            await showSuccess(
-                `Student "${formData.Full_Name}" updated successfully!`,
-                'Update Successful'
-            );
-            navigate(`/records/${id}`);
-        } else {
-            await showError('Failed to update student: ' + result.error, 'Update Failed');
+        try {
+            const result = await studentAPI.updateStudent(parseInt(id), formData);
+
+            if (result.success) {
+                await showSuccess(
+                    `Student "${formData.Full_Name}" updated successfully!`,
+                    'Update Successful'
+                );
+                navigate(`/records/${id}`);
+            } else {
+                await showError('Failed to update student: ' + result.error, 'Update Failed');
+            }
+        } catch (error) {
+            await showError('An unexpected error occurred: ' + error.message, 'Update Error');
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -161,10 +170,31 @@ function EditStudent() {
             <div>
                 <Header />
                 <div className="add-student-container">
-                    <div style={{ textAlign: 'center', padding: '50px' }}>
-                        <p>Loading student data...</p>
+                    <div className="loading-container" style={{ 
+                        textAlign: 'center', 
+                        padding: '50px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '20px'
+                    }}>
+                        <div className="spinner" style={{
+                            width: '50px',
+                            height: '50px',
+                            border: '4px solid #f3f3f3',
+                            borderTop: '4px solid #3498db',
+                            borderRadius: '50%',
+                            animation: 'spin 1s linear infinite'
+                        }}></div>
+                        <p style={{ color: '#666', fontSize: '16px' }}>Loading student data...</p>
                     </div>
                 </div>
+                <style>{`
+                    @keyframes spin {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
+                    }
+                `}</style>
             </div>
         );
     }
@@ -172,7 +202,6 @@ function EditStudent() {
     if (!student) {
         return (
             <div>
-                <Header />
                 <div className="not-found">Student not found</div>
             </div>
         );
@@ -260,8 +289,11 @@ function EditStudent() {
 
     return (
         <div className="add-student-page">
-            <Header />
-            <button className="btn-back" onClick={handleBack}>
+            <button 
+                className="btn-back" 
+                onClick={handleBack}
+                disabled={isSubmitting}
+            >
                 ← Back
             </button>
             <div className="add-student-container">
@@ -270,11 +302,37 @@ function EditStudent() {
                     <p className="add-student-subtitle">Update student information for {student.Full_Name}</p>
                 </div>
 
+                {/* Submission Status Banner */}
+                {isSubmitting && (
+                    <div className="status-banner" style={{
+                        padding: '15px 20px',
+                        backgroundColor: '#dbeafe',
+                        border: '1px solid #3b82f6',
+                        borderRadius: '8px',
+                        marginBottom: '20px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px'
+                    }}>
+                        <div className="spinner" style={{
+                            width: '20px',
+                            height: '20px',
+                            border: '3px solid #bfdbfe',
+                            borderTop: '3px solid #3b82f6',
+                            borderRadius: '50%',
+                            animation: 'spin 1s linear infinite'
+                        }}></div>
+                        <p style={{ margin: 0, color: '#1e40af', fontWeight: '500' }}>
+                            💾 Saving changes...
+                        </p>
+                    </div>
+                )}
+
                 <div className="source-sheet-display">
                     <span className="source-sheet-badge">Source Cohort: {formData.Source_Sheet}</span>
                 </div>
 
-                {/* ✅ REPLACED: Use Photo component instead of custom upload logic */}
+                {/* Student Photo */}
                 <div className="form-section">
                     <h2 className="form-section-title">📷 Student Photo</h2>
                     <div className="photo-upload-section" style={{ display: 'flex', justifyContent: 'center', padding: '20px' }}>
@@ -283,13 +341,13 @@ function EditStudent() {
                             studentId={student.id}
                             studentID={student.Student_ID}
                             studentName={student.Full_Name}
-                            editable={true}
+                            editable={!isSubmitting}
                             onPhotoChange={handlePhotoChange}
                         />
                     </div>
                 </div>
 
-                {/* ✅ Participations Section */}
+                {/* Participations Section */}
                 <ParticipationsList studentId={parseInt(id)} />
 
                 <form onSubmit={handleSubmit} className="add-student-form">
@@ -309,6 +367,11 @@ function EditStudent() {
                                             onChange={handleChange}
                                             className="form-input"
                                             placeholder={`Enter ${field.label.replace(' *', '')}`}
+                                            disabled={isSubmitting}
+                                            style={{
+                                                opacity: isSubmitting ? 0.6 : 1,
+                                                cursor: isSubmitting ? 'not-allowed' : 'text'
+                                            }}
                                         />
                                     </div>
                                 ))}
@@ -317,19 +380,57 @@ function EditStudent() {
                     ))}
 
                     <div className="form-actions">
-                        <button type="submit" className="btn-submit">
-                            Save Changes
+                        <button 
+                            type="submit" 
+                            className="btn-submit"
+                            disabled={isSubmitting}
+                            style={{
+                                opacity: isSubmitting ? 0.6 : 1,
+                                cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '8px'
+                            }}
+                        >
+                            {isSubmitting ? (
+                                <>
+                                    <div className="btn-spinner" style={{
+                                        width: '16px',
+                                        height: '16px',
+                                        border: '2px solid #ffffff',
+                                        borderTop: '2px solid transparent',
+                                        borderRadius: '50%',
+                                        animation: 'spin 0.8s linear infinite'
+                                    }}></div>
+                                    Saving Changes...
+                                </>
+                            ) : (
+                                'Save Changes'
+                            )}
                         </button>
                         <button
                             type="button"
                             className="btn-cancel"
                             onClick={() => navigate(-1)}
+                            disabled={isSubmitting}
+                            style={{
+                                opacity: isSubmitting ? 0.6 : 1,
+                                cursor: isSubmitting ? 'not-allowed' : 'pointer'
+                            }}
                         >
                             Cancel
                         </button>
                     </div>
                 </form>
             </div>
+
+            <style>{`
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+            `}</style>
         </div>
     );
 }

@@ -14,6 +14,9 @@ function AddStudent() {
     const [showNewCohortInput, setShowNewCohortInput] = useState(false);
     const [newCohortName, setNewCohortName] = useState('');
     const [creatingCohort, setCreatingCohort] = useState(false);
+    const [isLoadingCohorts, setIsLoadingCohorts] = useState(true);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
     // Load available cohorts on mount
     useEffect(() => {
@@ -21,10 +24,12 @@ function AddStudent() {
     }, []);
 
     const loadCohorts = async () => {
+        setIsLoadingCohorts(true);
         const result = await studentAPI.getCohorts();
         if (result.success && result.cohorts.length > 0) {
             setAvailableCohorts(result.cohorts);
         }
+        setIsLoadingCohorts(false);
     };
 
     const handleAddCohort = async () => {
@@ -142,23 +147,35 @@ function AddStudent() {
             return;
         }
 
-        const result = await studentAPI.addStudent(formData);
+        setIsSubmitting(true);
 
-        if (result.success) {
-            const newStudent = result.data;
+        try {
+            const result = await studentAPI.addStudent(formData);
 
-            if (photoFile) {
-                const photoResult = await studentAPI.savePhoto(newStudent.id, photoFile);
-                if (!photoResult.success) {
-                    console.error('Failed to upload photo:', photoResult.error);
-                    await showWarning(`Student added, but photo upload failed: ${photoResult.error}`);
+            if (result.success) {
+                const newStudent = result.data;
+
+                if (photoFile) {
+                    setIsUploadingPhoto(true);
+                    const photoResult = await studentAPI.savePhoto(newStudent.id, photoFile);
+                    setIsUploadingPhoto(false);
+                    
+                    if (!photoResult.success) {
+                        console.error('Failed to upload photo:', photoResult.error);
+                        await showWarning(`Student added, but photo upload failed: ${photoResult.error}`);
+                    }
                 }
-            }
 
-            await showSuccess(`Student "${formData.Full_Name}" added successfully!`);
-            navigate("/records");
-        } else {
-            await showError('Failed to add student: ' + result.error);
+                await showSuccess(`Student "${formData.Full_Name}" added successfully!`);
+                navigate("/records");
+            } else {
+                await showError('Failed to add student: ' + result.error);
+            }
+        } catch (error) {
+            await showError('An unexpected error occurred: ' + error.message);
+        } finally {
+            setIsSubmitting(false);
+            setIsUploadingPhoto(false);
         }
     };
 
@@ -242,10 +259,15 @@ function AddStudent() {
         }
     ];
 
+    const isFormDisabled = isSubmitting || isUploadingPhoto || creatingCohort;
+
     return (
         <div className="add-student-page">
-            <Header />
-            <button className="btn-back" onClick={handleBack}>
+            <button 
+                className="btn-back" 
+                onClick={handleBack}
+                disabled={isFormDisabled}
+            >
                 ← Back
             </button>
             <div className="add-student-container">
@@ -254,103 +276,173 @@ function AddStudent() {
                     <p className="add-student-subtitle">Fill in the student information below</p>
                 </div>
 
-                {/* ✅ ADD INFO BANNER */}
+                {/* Loading/Submission Status Banner */}
+                {(isSubmitting || isUploadingPhoto) && (
+                    <div className="status-banner" style={{
+                        padding: '15px 20px',
+                        backgroundColor: '#dbeafe',
+                        border: '1px solid #3b82f6',
+                        borderRadius: '8px',
+                        marginBottom: '20px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px'
+                    }}>
+                        <div className="spinner" style={{
+                            width: '20px',
+                            height: '20px',
+                            border: '3px solid #bfdbfe',
+                            borderTop: '3px solid #3b82f6',
+                            borderRadius: '50%',
+                            animation: 'spin 1s linear infinite'
+                        }}></div>
+                        <p style={{ margin: 0, color: '#1e40af', fontWeight: '500' }}>
+                            {isUploadingPhoto ? '📸 Uploading student photo...' : '💾 Saving student data...'}
+                        </p>
+                    </div>
+                )}
+
+                {/* Info Banner */}
                 <div className="info-banner">
                     <p>ℹ️ <strong>Note:</strong> You can add event participations after saving the student record.</p>
                 </div>
 
                 <div className="source-sheet-selector">
                     <label className="source-sheet-label">Source Cohort:</label>
-                    <div className="radio-group">
-                        {availableCohorts.map(cohort => (
-                            <label key={cohort} className="radio-option">
-                                <input
-                                    type="radio"
-                                    name="Source_Sheet"
-                                    value={cohort}
-                                    checked={formData.Source_Sheet === cohort}
-                                    onChange={handleChange}
-                                    disabled={creatingCohort}
-                                />
-                                <span>{cohort}</span>
-                            </label>
-                        ))}
-                    </div>
-
-                    {!showNewCohortInput && (
-                        <button
-                            type="button"
-                            onClick={() => setShowNewCohortInput(true)}
-                            disabled={creatingCohort}
-                            style={{
-                                marginTop: '10px',
-                                padding: '8px 16px',
-                                backgroundColor: '#10b981',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '6px',
-                                cursor: 'pointer',
-                                fontSize: '14px'
-                            }}
-                        >
-                            ➕ Add New Cohort
-                        </button>
-                    )}
-
-                    {showNewCohortInput && (
-                        <div style={{ marginTop: '15px', padding: '15px', backgroundColor: '#f0fdf4', borderRadius: '8px', border: '1px solid #10b981' }}>
-                            <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#047857' }}>
-                                Create New Cohort:
-                            </label>
-                            <div style={{ display: 'flex', gap: '10px' }}>
-                                <input
-                                    type="text"
-                                    value={newCohortName}
-                                    onChange={(e) => setNewCohortName(e.target.value)}
-                                    placeholder="e.g., C4, C5"
-                                    disabled={creatingCohort}
-                                    style={{
-                                        flex: 1,
-                                        padding: '8px 12px',
-                                        border: '1px solid #d1d5db',
-                                        borderRadius: '6px'
-                                    }}
-                                />
-                                <button
-                                    type="button"
-                                    onClick={handleAddCohort}
-                                    disabled={creatingCohort}
-                                    style={{
-                                        padding: '8px 16px',
-                                        backgroundColor: '#10b981',
-                                        color: 'white',
-                                        border: 'none',
-                                        borderRadius: '6px',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    {creatingCohort ? '⏳' : '✅'} Create
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setShowNewCohortInput(false);
-                                        setNewCohortName('');
-                                    }}
-                                    disabled={creatingCohort}
-                                    style={{
-                                        padding: '8px 16px',
-                                        backgroundColor: '#6b7280',
-                                        color: 'white',
-                                        border: 'none',
-                                        borderRadius: '6px',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    ✖
-                                </button>
-                            </div>
+                    
+                    {isLoadingCohorts ? (
+                        <div style={{ 
+                            padding: '15px', 
+                            textAlign: 'center',
+                            color: '#666',
+                            backgroundColor: '#f9fafb',
+                            borderRadius: '8px',
+                            marginTop: '10px'
+                        }}>
+                            <div className="spinner" style={{
+                                width: '20px',
+                                height: '20px',
+                                border: '3px solid #e5e7eb',
+                                borderTop: '3px solid #3b82f6',
+                                borderRadius: '50%',
+                                animation: 'spin 1s linear infinite',
+                                margin: '0 auto 8px'
+                            }}></div>
+                            Loading cohorts...
                         </div>
+                    ) : (
+                        <>
+                            <div className="radio-group">
+                                {availableCohorts.map(cohort => (
+                                    <label key={cohort} className="radio-option">
+                                        <input
+                                            type="radio"
+                                            name="Source_Sheet"
+                                            value={cohort}
+                                            checked={formData.Source_Sheet === cohort}
+                                            onChange={handleChange}
+                                            disabled={isFormDisabled}
+                                        />
+                                        <span>{cohort}</span>
+                                    </label>
+                                ))}
+                            </div>
+
+                            {!showNewCohortInput && (
+                                <button
+                                    type="button"
+                                    onClick={() => setShowNewCohortInput(true)}
+                                    disabled={isFormDisabled}
+                                    style={{
+                                        marginTop: '10px',
+                                        padding: '8px 16px',
+                                        backgroundColor: isFormDisabled ? '#9ca3af' : '#10b981',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '6px',
+                                        cursor: isFormDisabled ? 'not-allowed' : 'pointer',
+                                        fontSize: '14px',
+                                        opacity: isFormDisabled ? 0.6 : 1
+                                    }}
+                                >
+                                    ➕ Add New Cohort
+                                </button>
+                            )}
+
+                            {showNewCohortInput && (
+                                <div style={{ marginTop: '15px', padding: '15px', backgroundColor: '#f0fdf4', borderRadius: '8px', border: '1px solid #10b981' }}>
+                                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#047857' }}>
+                                        Create New Cohort:
+                                    </label>
+                                    <div style={{ display: 'flex', gap: '10px' }}>
+                                        <input
+                                            type="text"
+                                            value={newCohortName}
+                                            onChange={(e) => setNewCohortName(e.target.value)}
+                                            placeholder="e.g., C4, C5"
+                                            disabled={isFormDisabled}
+                                            style={{
+                                                flex: 1,
+                                                padding: '8px 12px',
+                                                border: '1px solid #d1d5db',
+                                                borderRadius: '6px',
+                                                opacity: isFormDisabled ? 0.6 : 1
+                                            }}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={handleAddCohort}
+                                            disabled={isFormDisabled}
+                                            style={{
+                                                padding: '8px 16px',
+                                                backgroundColor: isFormDisabled ? '#9ca3af' : '#10b981',
+                                                color: 'white',
+                                                border: 'none',
+                                                borderRadius: '6px',
+                                                cursor: isFormDisabled ? 'not-allowed' : 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px'
+                                            }}
+                                        >
+                                            {creatingCohort ? (
+                                                <>
+                                                    <div className="btn-spinner" style={{
+                                                        width: '12px',
+                                                        height: '12px',
+                                                        border: '2px solid #ffffff',
+                                                        borderTop: '2px solid transparent',
+                                                        borderRadius: '50%',
+                                                        animation: 'spin 0.8s linear infinite'
+                                                    }}></div>
+                                                    Creating...
+                                                </>
+                                            ) : (
+                                                <>✅ Create</>
+                                            )}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setShowNewCohortInput(false);
+                                                setNewCohortName('');
+                                            }}
+                                            disabled={isFormDisabled}
+                                            style={{
+                                                padding: '8px 16px',
+                                                backgroundColor: isFormDisabled ? '#9ca3af' : '#6b7280',
+                                                color: 'white',
+                                                border: 'none',
+                                                borderRadius: '6px',
+                                                cursor: isFormDisabled ? 'not-allowed' : 'pointer'
+                                            }}
+                                        >
+                                            ✖
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </>
                     )}
 
                     <p style={{ fontSize: '12px', color: '#666', marginTop: '8px' }}>
@@ -375,6 +467,11 @@ function AddStudent() {
                                             onChange={handleChange}
                                             className="form-input"
                                             placeholder={`Enter ${field.label.replace(' *', '')}`}
+                                            disabled={isFormDisabled}
+                                            style={{
+                                                opacity: isFormDisabled ? 0.6 : 1,
+                                                cursor: isFormDisabled ? 'not-allowed' : 'text'
+                                            }}
                                         />
                                     </div>
                                 ))}
@@ -383,19 +480,58 @@ function AddStudent() {
                     ))}
 
                     <div className="form-actions">
-                        <button type="submit" className="btn-submit">
-                            Save Student
+                        <button 
+                            type="submit" 
+                            className="btn-submit"
+                            disabled={isFormDisabled}
+                            style={{
+                                opacity: isFormDisabled ? 0.6 : 1,
+                                cursor: isFormDisabled ? 'not-allowed' : 'pointer',
+                                position: 'relative',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '8px'
+                            }}
+                        >
+                            {isSubmitting || isUploadingPhoto ? (
+                                <>
+                                    <div className="btn-spinner" style={{
+                                        width: '16px',
+                                        height: '16px',
+                                        border: '2px solid #ffffff',
+                                        borderTop: '2px solid transparent',
+                                        borderRadius: '50%',
+                                        animation: 'spin 0.8s linear infinite'
+                                    }}></div>
+                                    {isUploadingPhoto ? 'Uploading Photo...' : 'Saving...'}
+                                </>
+                            ) : (
+                                'Save Student'
+                            )}
                         </button>
                         <button
                             type="button"
                             className="btn-cancel"
                             onClick={handleBack}
+                            disabled={isFormDisabled}
+                            style={{
+                                opacity: isFormDisabled ? 0.6 : 1,
+                                cursor: isFormDisabled ? 'not-allowed' : 'pointer'
+                            }}
                         >
                             Cancel
                         </button>
                     </div>
                 </form>
             </div>
+
+            <style>{`
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+            `}</style>
         </div>
     );
 }

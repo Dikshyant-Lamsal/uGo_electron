@@ -5,17 +5,21 @@ import studentAPI from "../api/studentApi";
 import { showError, showSuccess, showConfirm } from "../utils/dialog";
 
 export default function Records() {
-
-
     const navigate = useNavigate();
     const location = useLocation();
     const [searchParams, setSearchParams] = useSearchParams();
 
     const scrollPositionRef = useRef(0);
     const searchInputRef = useRef(null);
+    const headerRef = useRef(null);
+    const tableWrapperRef = useRef(null);
     const [students, setStudents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isUpdating, setIsUpdating] = useState(false);
+    const [deletingIds, setDeletingIds] = useState(new Set());
+    const [isHeaderScrolled, setIsHeaderScrolled] = useState(false);
+    const [tableHasScroll, setTableHasScroll] = useState(false);
+    const [isLoadingCohorts, setIsLoadingCohorts] = useState(true);
 
     const [searchTerm, setSearchTerm] = useState("");
     const [filters, setFilters] = useState({
@@ -36,7 +40,7 @@ export default function Records() {
 
     const [availableCohorts, setAvailableCohorts] = useState([]);
 
-    // ✅ Helper function to normalize cohort
+    // Helper function to normalize cohort
     const normalize_cohort = (source_sheet) => {
         if (!source_sheet) return 'C1';
         const str = String(source_sheet);
@@ -47,7 +51,7 @@ export default function Records() {
         return 'C1';
     };
 
-    // ✅ Helper function to normalize text (remove dots, spaces, lowercase)
+    // Helper function to normalize text
     const normalizeText = (text) => {
         if (!text) return '';
         return String(text).toLowerCase().replace(/[.\s]/g, '');
@@ -83,6 +87,31 @@ export default function Records() {
         }
     }, [loading, isUpdating, students]);
 
+    // Handle scroll effect for sticky header
+    useEffect(() => {
+        const handleScroll = () => {
+            const scrolled = window.scrollY > 10;
+            setIsHeaderScrolled(scrolled);
+        };
+
+        window.addEventListener('scroll', handleScroll);
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
+
+    // Check if table needs horizontal scrolling
+    useEffect(() => {
+        const checkTableScroll = () => {
+            if (tableWrapperRef.current) {
+                const hasScroll = tableWrapperRef.current.scrollWidth > tableWrapperRef.current.clientWidth;
+                setTableHasScroll(hasScroll);
+            }
+        };
+
+        checkTableScroll();
+        window.addEventListener('resize', checkTableScroll);
+        return () => window.removeEventListener('resize', checkTableScroll);
+    }, [students]);
+
     // Restore state from URL params
     useEffect(() => {
         if (loading || hasInitializedFromURL.current) return;
@@ -97,18 +126,23 @@ export default function Records() {
         const urlSortDir = searchParams.get('sortDir');
         const urlShowFilters = searchParams.get('showFilters');
 
-        if (urlSearch) setSearchTerm(urlSearch);
-        if (urlCohorts?.length) setFilters(prev => ({ ...prev, cohorts: urlCohorts }));
-        if (urlPrograms?.length) setFilters(prev => ({ ...prev, programs: urlPrograms }));
-        if (urlColleges?.length) setFilters(prev => ({ ...prev, colleges: urlColleges }));
-        if (urlYears?.length) setFilters(prev => ({ ...prev, years: urlYears }));
-        if (urlDistricts?.length) setFilters(prev => ({ ...prev, districts: urlDistricts }));
-        if (urlSortKey) setSortConfig(prev => ({ ...prev, key: urlSortKey }));
-        if (urlSortDir) setSortConfig(prev => ({ ...prev, direction: urlSortDir }));
-        if (urlShowFilters === 'true') setShowFilters(true);
+        // Defer state updates to avoid synchronous setState calls inside the effect
+        const id = setTimeout(() => {
+            if (urlSearch) setSearchTerm(urlSearch);
+            if (urlCohorts?.length) setFilters(prev => ({ ...prev, cohorts: urlCohorts }));
+            if (urlPrograms?.length) setFilters(prev => ({ ...prev, programs: urlPrograms }));
+            if (urlColleges?.length) setFilters(prev => ({ ...prev, colleges: urlColleges }));
+            if (urlYears?.length) setFilters(prev => ({ ...prev, years: urlYears }));
+            if (urlDistricts?.length) setFilters(prev => ({ ...prev, districts: urlDistricts }));
+            if (urlSortKey) setSortConfig(prev => ({ ...prev, key: urlSortKey }));
+            if (urlSortDir) setSortConfig(prev => ({ ...prev, direction: urlSortDir }));
+            if (urlShowFilters === 'true') setShowFilters(true);
 
-        hasInitializedFromURL.current = true;
-    }, [loading]);
+            hasInitializedFromURL.current = true;
+        }, 0);
+
+        return () => clearTimeout(id);
+    }, [loading, searchParams]);
 
     // Save scroll position
     useEffect(() => {
@@ -154,22 +188,22 @@ export default function Records() {
 
     useEffect(() => {
         const fetchCohorts = async () => {
-            const result = await studentAPI.getCohorts();  // ✅ CORRECT
+            setIsLoadingCohorts(true);
+            const result = await studentAPI.getCohorts();
             if (result.success) {
                 setAvailableCohorts(result.cohorts);
             }
+            setIsLoadingCohorts(false);
         };
         fetchCohorts();
     }, []);
 
-    // ✅ Filter options - Normalize and deduplicate
+    // Filter options
     const filterOptions = useMemo(() => {
-        // Use Cohort column if available, otherwise normalize Source_Sheet
-        const cohorts = availableCohorts; // Only C1, C2, C3, etc.
+        const cohorts = availableCohorts;
 
-        // ✅ Helper to get unique values with case-insensitive deduplication
         const getUniqueNormalized = (field) => {
-            const seen = new Map(); // Map normalized -> original
+            const seen = new Map();
             students
                 .map(s => s[field])
                 .filter(Boolean)
@@ -203,6 +237,13 @@ export default function Records() {
         });
     };
 
+    const removeFilter = (filterType, value) => {
+        setFilters(prev => ({
+            ...prev,
+            [filterType]: prev[filterType].filter(v => v !== value)
+        }));
+    };
+
     const clearAllFilters = () => {
         setFilters({ cohorts: [], programs: [], colleges: [], years: [], districts: [] });
         setSearchTerm("");
@@ -224,13 +265,11 @@ export default function Records() {
 
     const filteredAndSortedStudents = useMemo(() => {
         let filtered = students.filter(student => {
-            // ✅ Filter by normalized cohort
             if (filters.cohorts.length) {
                 const studentCohort = student.Cohort || normalize_cohort(student.Source_Sheet);
                 if (!filters.cohorts.includes(studentCohort)) return false;
             }
 
-            // ✅ Case-insensitive filtering for programs, colleges, years, districts
             if (filters.programs.length) {
                 const studentProgram = normalizeText(student.Program);
                 const matchesProgram = filters.programs.some(p => normalizeText(p) === studentProgram);
@@ -295,7 +334,9 @@ export default function Records() {
 
         if (!confirmed) return;
 
+        setDeletingIds(prev => new Set(prev).add(id));
         setIsUpdating(true);
+        
         const result = await studentAPI.deleteStudent(id);
 
         if (result.success) {
@@ -304,6 +345,12 @@ export default function Records() {
         } else {
             await showError('Delete failed: ' + result.error);
         }
+        
+        setDeletingIds(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(id);
+            return newSet;
+        });
         setIsUpdating(false);
     };
 
@@ -313,159 +360,296 @@ export default function Records() {
 
     const activeFilterCount = Object.values(filters).reduce((sum, arr) => sum + arr.length, 0);
 
+    // Get all active filters as an array
+    const activeFilters = useMemo(() => {
+        const allFilters = [];
+        Object.entries(filters).forEach(([type, values]) => {
+            values.forEach(value => {
+                allFilters.push({ type, value });
+            });
+        });
+        return allFilters;
+    }, [filters]);
+
+    const getFilterLabel = (type) => {
+        switch(type) {
+            case 'cohorts': return 'Cohort';
+            case 'programs': return 'Program';
+            case 'colleges': return 'College';
+            case 'years': return 'Year';
+            case 'districts': return 'District';
+            default: return type;
+        }
+    };
+
     if (loading) {
         return (
             <div className="records-page">
-                <h1 className="records-page-title">Student Records</h1>
-                <div style={{ textAlign: 'center', padding: '50px' }}>
-                    <p>Loading students...</p>
+                <div className="records-page-header">
+                    <h1 className="records-page-title">Student Records</h1>
                 </div>
+                <div className="loading-container" style={{ 
+                    textAlign: 'center', 
+                    padding: '50px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '20px'
+                }}>
+                    <div className="spinner" style={{
+                        width: '50px',
+                        height: '50px',
+                        border: '4px solid #f3f3f3',
+                        borderTop: '4px solid #3498db',
+                        borderRadius: '50%',
+                        animation: 'spin 1s linear infinite'
+                    }}></div>
+                    <p style={{ color: '#666', fontSize: '16px' }}>Loading students...</p>
+                </div>
+                <style>{`
+                    @keyframes spin {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
+                    }
+                `}</style>
             </div>
         );
     }
 
     return (
         <div className="records-page">
-            <h1 className="records-page-title">Student Records</h1>
+            {/* Sticky Header with Search */}
+            <div 
+                ref={headerRef}
+                className={`records-page-header ${isHeaderScrolled ? 'scrolled' : ''}`}
+            >
+                <h1 className="records-page-title">Student Records</h1>
 
-            <div className="search-filter-section">
-                <div className="search-box">
-                    <label className="search-label">🔍 Search Students</label>
-                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                        <input
-                            ref={searchInputRef}
-                            type="text"
-                            className="search-input"
-                            placeholder="Search by name, Student ID, college, program, district, or contact..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            autoComplete="off"
-                            style={{ paddingRight: searchTerm ? '40px' : '12px' }}
-                        />
-                        {searchTerm && (
+                <div className="search-filter-section">
+                    {/* Search Box */}
+                    <div className="search-box">
+                        <div className="search-input-wrapper">
+                            <span className="search-icon">🔍</span>
+                            <input
+                                ref={searchInputRef}
+                                type="text"
+                                className="search-input"
+                                placeholder="Search by name, Student ID, college, program, district, or contact..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                autoComplete="off"
+                                disabled={isUpdating}
+                            />
+                            {searchTerm && (
+                                <button
+                                    className="clear-search-btn"
+                                    onClick={clearSearch}
+                                    title="Clear search"
+                                    disabled={isUpdating}
+                                >
+                                    ✖
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Active Filters Display */}
+                    {activeFilters.length > 0 && (
+                        <div className="active-filters-display">
+                            {activeFilters.map(({ type, value }, index) => (
+                                <div key={`${type}-${value}-${index}`} className="active-filter-chip">
+                                    <span className="filter-chip-label">{getFilterLabel(type)}:</span>
+                                    <span className="filter-chip-value">{value}</span>
+                                    <button
+                                        className="filter-chip-remove"
+                                        onClick={() => removeFilter(type, value)}
+                                        title={`Remove ${value}`}
+                                        disabled={isUpdating}
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Filter Controls */}
+                    <div className="filter-controls">
+                        <div className="filter-toggle-wrapper">
                             <button
-                                onClick={clearSearch}
-                                style={{
-                                    position: 'absolute',
-                                    right: '10px',
-                                    background: 'none',
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    fontSize: '18px',
-                                    color: '#999',
-                                    padding: '4px 8px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center'
-                                }}
-                                title="Clear search"
+                                className="btn-toggle-filters"
+                                onClick={() => setShowFilters(!showFilters)}
+                                disabled={isUpdating}
                             >
-                                ✖
+                                <span className="filter-icon">⚙️</span>
+                                <span>Filters</span>
+                                {activeFilterCount > 0 && (
+                                    <span className="filter-badge">{activeFilterCount}</span>
+                                )}
+                            </button>
+                        </div>
+
+                        {activeFilterCount > 0 && (
+                            <button 
+                                className="btn-clear-filters" 
+                                onClick={clearAllFilters}
+                                disabled={isUpdating}
+                            >
+                                ✖ Clear All Filters
                             </button>
                         )}
                     </div>
-                </div>
 
-                <div className="filter-header">
-                    <button
-                        className="btn-toggle-filters"
-                        onClick={() => setShowFilters(!showFilters)}
-                    >
-                        {showFilters ? '▼' : '▶'} Filters {activeFilterCount > 0 && `(${activeFilterCount})`}
-                    </button>
-
-                    {activeFilterCount > 0 && (
-                        <button className="btn-clear-filters" onClick={clearAllFilters}>
-                            ✖ Clear All
-                        </button>
-                    )}
-                </div>
-
-                {/* Filters UI */}
-                {showFilters && (
-                    <div className="advanced-filters">
-                        {['cohorts', 'programs', 'colleges', 'years', 'districts'].map(type => (
-                            <div className="filter-group" key={type}>
-                                <label className="filter-group-label">
-                                    {type === 'cohorts' ? '📚 Cohort' :
-                                        type === 'programs' ? '🎓 Program' :
-                                            type === 'colleges' ? '🏫 College' :
-                                                type === 'years' ? '📅 Year' : '📍 District'}
-                                    {filters[type].length > 0 && ` (${filters[type].length})`}
-                                </label>
-                                <div className="filter-checkboxes">
-                                    {filterOptions[type].map(value => (
-                                        <label key={value} className="checkbox-option">
-                                            <input
-                                                type="checkbox"
-                                                checked={filters[type].includes(value)}
-                                                onChange={() => toggleFilter(type, value)}
-                                            />
-                                            <span>{value}</span>
-                                        </label>
-                                    ))}
+                    {/* Advanced Filters Panel */}
+                    {showFilters && (
+                        <div className="advanced-filters">
+                            {['cohorts', 'programs', 'colleges', 'years', 'districts'].map(type => (
+                                <div className="filter-group" key={type}>
+                                    <label className="filter-group-label">
+                                        {type === 'cohorts' ? '📚 Cohort' :
+                                            type === 'programs' ? '🎓 Program' :
+                                                type === 'colleges' ? '🏫 College' :
+                                                    type === 'years' ? '📅 Year' : '📍 District'}
+                                        {filters[type].length > 0 && ` (${filters[type].length})`}
+                                    </label>
+                                    <div className="filter-checkboxes">
+                                        {type === 'cohorts' && isLoadingCohorts ? (
+                                            <div style={{ padding: '10px', color: '#666', fontSize: '14px' }}>
+                                                Loading cohorts...
+                                            </div>
+                                        ) : filterOptions[type].length === 0 ? (
+                                            <div style={{ padding: '10px', color: '#999', fontSize: '14px', fontStyle: 'italic' }}>
+                                                No {type} available
+                                            </div>
+                                        ) : (
+                                            filterOptions[type].map(value => (
+                                                <label key={value} className="checkbox-option">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={filters[type].includes(value)}
+                                                        onChange={() => toggleFilter(type, value)}
+                                                        disabled={isUpdating}
+                                                    />
+                                                    <span>{value}</span>
+                                                </label>
+                                            ))
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
+                            ))}
+                        </div>
+                    )}
 
-                <div className="records-count">
-                    Showing: <strong>{filteredAndSortedStudents.length}</strong> / {students.length} students
-                    {activeFilterCount > 0 && ` (${activeFilterCount} filter${activeFilterCount > 1 ? 's' : ''} active)`}
+                    {/* Records Count */}
+                    <div className="records-count">
+                        Showing: <strong>{filteredAndSortedStudents.length}</strong> of {students.length} students
+                        {activeFilterCount > 0 && ` • ${activeFilterCount} filter${activeFilterCount > 1 ? 's' : ''} active`}
+                    </div>
                 </div>
             </div>
 
-            <table className="records-table">
-                <thead>
-                    <tr>
-                        {/* ✅ Add Student_ID column */}
-                        <th onClick={() => handleSort('Student_ID')} className="sortable">
-                            Student ID {sortConfig.key === 'Student_ID' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                        </th>
-                        {['Full_Name', 'Program', 'College', 'Current_Year', 'District'].map(key => (
-                            <th key={key} onClick={() => handleSort(key)} className="sortable">
-                                {key === 'Full_Name' ? 'Name' :
-                                    key === 'Program' ? 'Program' :
-                                        key === 'College' ? 'College' :
-                                            key === 'Current_Year' ? 'Year' : 'District'}
-                                {sortConfig.key === key && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                            </th>
-                        ))}
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {filteredAndSortedStudents.length > 0 ? filteredAndSortedStudents.map(s => (
-                        <tr key={s.id}>
-                            <td><strong>{s.Student_ID}</strong></td>
-                            <td>{s.Full_Name}</td>
-                            <td>{s.Program}</td>
-                            <td>{s.College}</td>
-                            <td>{s.Current_Year}</td>
-                            <td>{s.District}</td>
-                            <td>
-                                <button className="btn-view" onClick={() => handleViewStudent(s.id)}>View</button>
-                                <button
-                                    className="btn-delete-table"
-                                    onClick={() => handleDelete(s.id, s.Full_Name)}
-                                    disabled={isUpdating}
-                                >
-                                    Delete
-                                </button>
-                            </td>
-                        </tr>
-                    )) : (
+            {/* Table */}
+            <div 
+                ref={tableWrapperRef}
+                className={`records-table-wrapper ${tableHasScroll ? 'has-scroll' : ''}`}
+            >
+                <table className="records-table">
+                    <thead>
                         <tr>
-                            <td colSpan="7" style={{ textAlign: 'center', padding: '20px', color: 'var(--ev-c-text-3)' }}>
-                                {searchTerm || activeFilterCount > 0
-                                    ? 'No students found matching your search criteria'
-                                    : 'No students in database'}
-                            </td>
+                            <th onClick={() => handleSort('Student_ID')} className="sortable">
+                                Student ID {sortConfig.key === 'Student_ID' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                            </th>
+                            {['Full_Name', 'Program', 'College', 'Current_Year', 'District'].map(key => (
+                                <th key={key} onClick={() => handleSort(key)} className="sortable">
+                                    {key === 'Full_Name' ? 'Name' :
+                                        key === 'Program' ? 'Program' :
+                                            key === 'College' ? 'College' :
+                                                key === 'Current_Year' ? 'Year' : 'District'}
+                                    {sortConfig.key === key && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                </th>
+                            ))}
+                            <th>Actions</th>
                         </tr>
-                    )}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        {filteredAndSortedStudents.length > 0 ? filteredAndSortedStudents.map(s => {
+                            const isDeleting = deletingIds.has(s.id);
+                            return (
+                                <tr key={s.id} className={isDeleting ? 'deleting' : ''}>
+                                    <td><strong>{s.Student_ID}</strong></td>
+                                    <td>{s.Full_Name}</td>
+                                    <td>{s.Program}</td>
+                                    <td>{s.College}</td>
+                                    <td>{s.Current_Year}</td>
+                                    <td>{s.District}</td>
+                                    <td>
+                                        <div className="table-actions">
+                                            <button 
+                                                className="btn-view" 
+                                                onClick={() => handleViewStudent(s.id)}
+                                                disabled={isDeleting}
+                                            >
+                                                <span>👁️</span>
+                                                <span>View</span>
+                                            </button>
+                                            <button
+                                                className="btn-delete-table"
+                                                onClick={() => handleDelete(s.id, s.Full_Name)}
+                                                disabled={isDeleting || isUpdating}
+                                            >
+                                                {isDeleting ? (
+                                                    <>
+                                                        <span className="btn-spinner" style={{
+                                                            display: 'inline-block',
+                                                            width: '12px',
+                                                            height: '12px',
+                                                            border: '2px solid #ffffff',
+                                                            borderTop: '2px solid transparent',
+                                                            borderRadius: '50%',
+                                                            animation: 'spin 0.8s linear infinite'
+                                                        }}></span>
+                                                        <span>Deleting...</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <span>🗑️</span>
+                                                        <span>Delete</span>
+                                                    </>
+                                                )}
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            );
+                        }) : (
+                            <tr>
+                                <td colSpan="7">
+                                    <div className="table-empty-state">
+                                        <div className="table-empty-state-icon">📋</div>
+                                        <div className="table-empty-state-text">
+                                            {searchTerm || activeFilterCount > 0
+                                                ? 'No students found matching your search criteria'
+                                                : 'No students in database'}
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
+
+            <style>{`
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+                
+                tr.deleting {
+                    opacity: 0.6;
+                    pointer-events: none;
+                }
+            `}</style>
         </div>
     );
 }
