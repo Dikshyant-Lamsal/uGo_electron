@@ -1,6 +1,6 @@
 {
-  "name": "ugo-app-electron",
-  "version": "1.0.0",
+  "name": "ugo-scholarship-manager",
+  "version": "1.0.1",
   "description": "An Electron application with React",
   "main": "./out/main/index.js",
   "author": "dikshyant-lamsal",

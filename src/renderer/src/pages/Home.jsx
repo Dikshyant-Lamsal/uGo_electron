@@ -102,7 +102,7 @@ export default function Home() {
                     </p>
                 </div>
                 <div className="welcome-date">
-                    {new Date().toLocaleDateString('en-US', { 
+                    {new Date().toLocaleDateString('en-IN', { 
                         weekday: 'long', 
                         year: 'numeric', 
                         month: 'long', 

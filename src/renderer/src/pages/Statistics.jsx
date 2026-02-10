@@ -1,45 +1,42 @@
 /* eslint-disable prettier/prettier */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import studentAPI from "../api/studentApi";
-import { Box, Card, CardContent, Typography, Grid, Chip, IconButton, Paper } from "@mui/material";
+import { Box, Card, CardContent, Typography, Grid, Chip, Paper, Collapse } from "@mui/material";
 import { PieChart, BarChart } from "@mui/x-charts";
 
 export default function Statistics() {
+    const [searchParams, setSearchParams] = useSearchParams();
+    const hasInitializedFromURL = useRef(false);
+
     const [students, setStudents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [availableCohorts, setAvailableCohorts] = useState([]);
-    
+    const [isLoadingCohorts, setIsLoadingCohorts] = useState(true);
+
     // Filter states
-    const [selectedCohorts, setSelectedCohorts] = useState([]);
-    const [selectedDistricts, setSelectedDistricts] = useState([]);
+    const [filters, setFilters] = useState({
+        cohorts: [],
+        programs: [],
+        colleges: [],
+        years: [],
+        districts: []
+    });
     const [showFilters, setShowFilters] = useState(false);
 
-    useEffect(() => {
-        const fetchStudents = async () => {
-            setLoading(true);
-            const res = await studentAPI.getStudents({ page: 1, limit: 1000 });
-            if (res.success) {
-                setStudents(res.data);
-            }
-            setLoading(false);
-        };
-        fetchStudents();
-    }, []);
-
-    useEffect(() => {
-        const fetchCohorts = async () => {
-            const result = await studentAPI.getCohorts();
-            if (result.success) {
-                setAvailableCohorts(result.cohorts);
-            }
-        };
-        fetchCohorts();
-    }, []);
+    // Dropdown states for each filter group
+    const [expandedFilters, setExpandedFilters] = useState({
+        cohorts: false,
+        programs: false,
+        colleges: false,
+        years: false,
+        districts: false
+    });
 
     // ---------- Helpers ----------
     const normalizeText = (val) => val ? String(val).trim() : "Unknown";
 
-    const normalizeCohort = (student) => {
+    const normalize_cohort = (student) => {
         if (student.Cohort) return student.Cohort;
         const match = String(student.Source_Sheet || "").match(/\bC(\d+)\b/);
         return match ? `C${match[1]}` : "Unknown";
@@ -54,34 +51,212 @@ export default function Statistics() {
         return map;
     };
 
-    // Get unique districts
-    const uniqueDistricts = useMemo(() => {
-        const districts = new Set();
-        students.forEach(s => {
-            const district = normalizeText(s.District);
-            if (district !== "Unknown") districts.add(district);
-        });
-        return Array.from(districts).sort();
-    }, [students]);
+    // Fetch students
+    useEffect(() => {
+        const fetchStudents = async () => {
+            setLoading(true);
+            const res = await studentAPI.getStudents({ page: 1, limit: 1000 });
+            if (res.success) {
+                setStudents(res.data);
+            }
+            setLoading(false);
+        };
+        fetchStudents();
+    }, []);
 
-    // Filter students based on selections
+    // Fetch cohorts
+    useEffect(() => {
+        const fetchCohorts = async () => {
+            setIsLoadingCohorts(true);
+            const result = await studentAPI.getCohorts();
+            if (result.success) {
+                setAvailableCohorts(result.cohorts);
+            }
+            setIsLoadingCohorts(false);
+        };
+        fetchCohorts();
+    }, []);
+
+    // Restore state from URL params
+    useEffect(() => {
+        if (loading || hasInitializedFromURL.current) return;
+
+        const urlCohorts = searchParams.get('cohorts')?.split(',').filter(Boolean);
+        const urlPrograms = searchParams.get('programs')?.split(',').filter(Boolean);
+        const urlColleges = searchParams.get('colleges')?.split(',').filter(Boolean);
+        const urlYears = searchParams.get('years')?.split(',').filter(Boolean);
+        const urlDistricts = searchParams.get('districts')?.split(',').filter(Boolean);
+        const urlShowFilters = searchParams.get('showFilters');
+
+        const id = setTimeout(() => {
+            if (urlCohorts?.length) setFilters(prev => ({ ...prev, cohorts: urlCohorts }));
+            if (urlPrograms?.length) setFilters(prev => ({ ...prev, programs: urlPrograms }));
+            if (urlColleges?.length) setFilters(prev => ({ ...prev, colleges: urlColleges }));
+            if (urlYears?.length) setFilters(prev => ({ ...prev, years: urlYears }));
+            if (urlDistricts?.length) setFilters(prev => ({ ...prev, districts: urlDistricts }));
+            if (urlShowFilters === 'true') setShowFilters(true);
+            hasInitializedFromURL.current = true;
+        }, 0);
+
+        return () => clearTimeout(id);
+    }, [loading, searchParams]);
+
+    // Sync state to URL params
+    useEffect(() => {
+        if (!hasInitializedFromURL.current) return;
+
+        const params = new URLSearchParams();
+        if (filters.cohorts.length) params.set('cohorts', filters.cohorts.join(','));
+        if (filters.programs.length) params.set('programs', filters.programs.join(','));
+        if (filters.colleges.length) params.set('colleges', filters.colleges.join(','));
+        if (filters.years.length) params.set('years', filters.years.join(','));
+        if (filters.districts.length) params.set('districts', filters.districts.join(','));
+        if (showFilters) params.set('showFilters', 'true');
+
+        setSearchParams(params, { replace: true });
+    }, [filters, showFilters, setSearchParams]);
+
+    // Filter options
+    const filterOptions = useMemo(() => {
+        const cohorts = availableCohorts;
+
+        const getUniqueNormalized = (field) => {
+            const seen = new Map();
+            students
+                .map(s => s[field])
+                .filter(Boolean)
+                .forEach(value => {
+                    const normalized = normalizeText(value).toLowerCase();
+                    if (!seen.has(normalized)) {
+                        seen.set(normalized, value);
+                    }
+                });
+            return Array.from(seen.values()).sort((a, b) =>
+                a.toLowerCase().localeCompare(b.toLowerCase())
+            );
+        };
+
+        return {
+            cohorts: [...new Set(cohorts)].sort(),
+            programs: getUniqueNormalized('Program'),
+            colleges: getUniqueNormalized('College'),
+            years: getUniqueNormalized('Current_Year'),
+            districts: getUniqueNormalized('District')
+        };
+    }, [students, availableCohorts]);
+
+    // Filter functions
+    const toggleFilter = (filterType, value) => {
+        setFilters(prev => {
+            const currentValues = prev[filterType];
+            const newValues = currentValues.includes(value)
+                ? currentValues.filter(v => v !== value)
+                : [...currentValues, value];
+            return { ...prev, [filterType]: newValues };
+        });
+    };
+
+    const removeFilter = (filterType, value) => {
+        setFilters(prev => ({
+            ...prev,
+            [filterType]: prev[filterType].filter(v => v !== value)
+        }));
+    };
+
+    const clearAllFilters = () => {
+        setFilters({ cohorts: [], programs: [], colleges: [], years: [], districts: [] });
+    };
+
+    const toggleFilterExpanded = (filterType) => {
+        setExpandedFilters(prev => ({
+            ...prev,
+            [filterType]: !prev[filterType]
+        }));
+    };
+
+    // Get all active filters as an array
+    const activeFilters = useMemo(() => {
+        const allFilters = [];
+        Object.entries(filters).forEach(([type, values]) => {
+            values.forEach(value => {
+                allFilters.push({ type, value });
+            });
+        });
+        return allFilters;
+    }, [filters]);
+
+    const getFilterLabel = (type) => {
+        switch (type) {
+            case 'cohorts': return 'Cohort';
+            case 'programs': return 'Program';
+            case 'colleges': return 'College';
+            case 'years': return 'Year';
+            case 'districts': return 'District';
+            default: return type;
+        }
+    };
+
+    const getFilterIcon = (type) => {
+        switch (type) {
+            case 'cohorts': return '📚';
+            case 'programs': return '🎓';
+            case 'colleges': return '🏫';
+            case 'years': return '📅';
+            case 'districts': return '📍';
+            default: return '🔍';
+        }
+    };
+
+    // Filter students
     const filteredStudents = useMemo(() => {
         return students.filter(student => {
             // Filter by cohort
-            if (selectedCohorts.length > 0) {
-                const cohort = normalizeCohort(student);
-                if (!selectedCohorts.includes(cohort)) return false;
+            if (filters.cohorts.length > 0) {
+                const studentCohort = student.Cohort || normalize_cohort(student);
+                if (!filters.cohorts.includes(studentCohort)) return false;
             }
-            
+
+            // Filter by program
+            if (filters.programs.length > 0) {
+                const studentProgram = normalizeText(student.Program).toLowerCase();
+                const matchesProgram = filters.programs.some(p =>
+                    normalizeText(p).toLowerCase() === studentProgram
+                );
+                if (!matchesProgram) return false;
+            }
+
+            // Filter by college
+            if (filters.colleges.length > 0) {
+                const studentCollege = normalizeText(student.College).toLowerCase();
+                const matchesCollege = filters.colleges.some(c =>
+                    normalizeText(c).toLowerCase() === studentCollege
+                );
+                if (!matchesCollege) return false;
+            }
+
+            // Filter by year
+            if (filters.years.length > 0) {
+                const studentYear = normalizeText(student.Current_Year).toLowerCase();
+                const matchesYear = filters.years.some(y =>
+                    normalizeText(y).toLowerCase() === studentYear
+                );
+                if (!matchesYear) return false;
+            }
+
             // Filter by district
-            if (selectedDistricts.length > 0) {
-                const district = normalizeText(student.District);
-                if (!selectedDistricts.includes(district)) return false;
+            if (filters.districts.length > 0) {
+                const studentDistrict = normalizeText(student.District).toLowerCase();
+                const matchesDistrict = filters.districts.some(d =>
+                    normalizeText(d).toLowerCase() === studentDistrict
+                );
+                if (!matchesDistrict) return false;
             }
-            
+
             return true;
         });
-    }, [students, selectedCohorts, selectedDistricts]);
+    }, [students, filters]);
+
+    const activeFilterCount = Object.values(filters).reduce((sum, arr) => sum + arr.length, 0);
 
     // ---------- Calculations ----------
     const stats = useMemo(() => {
@@ -89,14 +264,14 @@ export default function Statistics() {
 
         const byDistrict = countBy(filteredStudents, s => s.District);
         const byCollege = countBy(filteredStudents, s => s.College);
-        const byCohort = countBy(filteredStudents, s => normalizeCohort(s));
+        const byCohort = countBy(filteredStudents, s => normalize_cohort(s));
         const byProgram = countBy(filteredStudents, s => s.Program);
         const byYear = countBy(filteredStudents, s => s.Current_Year);
-        
+
         // Cohort + Course combined
         const byCohortCourse = {};
         filteredStudents.forEach(s => {
-            const cohort = normalizeCohort(s);
+            const cohort = normalize_cohort(s);
             const course = normalizeText(s.Program);
             const key = `${cohort} - ${course}`;
             byCohortCourse[key] = (byCohortCourse[key] || 0) + 1;
@@ -116,58 +291,26 @@ export default function Statistics() {
         };
     }, [filteredStudents]);
 
-    // Handle filter changes
-    const toggleCohort = (cohort) => {
-        setSelectedCohorts(prev => 
-            prev.includes(cohort) 
-                ? prev.filter(c => c !== cohort)
-                : [...prev, cohort]
-        );
-    };
-
-    const toggleDistrict = (district) => {
-        setSelectedDistricts(prev => 
-            prev.includes(district) 
-                ? prev.filter(d => d !== district)
-                : [...prev, district]
-        );
-    };
-
-    const clearFilters = () => {
-        setSelectedCohorts([]);
-        setSelectedDistricts([]);
-    };
-
-    const activeFilterCount = selectedCohorts.length + selectedDistricts.length;
-
     if (loading) {
         return (
-            <Box className="statistics-page">
-                <Box className="loading-inline">
-                    <Box className="loading-inline-spinner"></Box>
-                    Loading analytics...
-                </Box>
+            <Box sx={{ p: { xs: 2, sm: 3 } }}>
+                <Typography variant="h6">Loading analytics...</Typography>
             </Box>
         );
     }
 
     if (!stats) {
         return (
-            <Box className="statistics-page">
-                <Box className="stats-empty">No data available</Box>
+            <Box sx={{ p: { xs: 2, sm: 3 } }}>
+                <Typography variant="h6">No data available</Typography>
             </Box>
         );
     }
 
     // ---------- Chart Data ----------
-    const toPieData = (obj) =>
-        Object.entries(obj)
-            .filter(([label]) => label !== "Unknown")
-            .map(([label, value], idx) => ({
-                id: idx,
-                label,
-                value
-            }));
+    const toPieData = (obj) => Object.entries(obj)
+        .filter(([label]) => label !== "Unknown")
+        .map(([label, value], idx) => ({ id: idx, label, value }));
 
     const toBarData = (obj) => {
         const filtered = Object.entries(obj).filter(([label]) => label !== "Unknown");
@@ -185,305 +328,469 @@ export default function Statistics() {
     const yearBar = toBarData(stats.byYear);
 
     return (
-        <Box className="statistics-page">
+        <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: '100%', overflow: 'hidden' }}>
             {/* Header */}
-            <Box className="stats-header">
-                <Box>
-                    <Typography variant="h4" className="stats-title">
-                        Analytics Dashboard
-                    </Typography>
-                    <Typography className="stats-subtitle">
-                        Student distribution and insights
-                    </Typography>
-                </Box>
-                
-                <IconButton
-                    onClick={() => setShowFilters(!showFilters)}
-                    className="btn-toggle-filters"
-                    sx={{
-                        backgroundColor: 'var(--ev-button-alt-bg)',
-                        color: 'var(--color-text-1)',
-                        '&:hover': {
-                            backgroundColor: 'var(--ev-button-alt-hover-bg)',
-                        },
-                    }}
-                >
-                    <span style={{ fontSize: '1.2rem' }}>⚙️</span>
-                    {activeFilterCount > 0 && (
-                        <Box className="filter-badge" sx={{
-                            position: 'absolute',
-                            top: 4,
-                            right: 4,
-                            backgroundColor: 'var(--color-accent)',
-                            color: 'white',
-                            borderRadius: '50%',
-                            width: 20,
-                            height: 20,
-                            fontSize: '0.7rem',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontWeight: 'bold'
-                        }}>
-                            {activeFilterCount}
-                        </Box>
-                    )}
-                </IconButton>
+            <Box sx={{ mb: 3 }}>
+                <Typography variant="h4" component="h1" gutterBottom sx={{ fontSize: { xs: '1.75rem', sm: '2.125rem' } }}>
+                    Analytics Dashboard
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                    Student distribution and insights
+                </Typography>
             </Box>
 
-            {/* Filter Panel */}
-            {showFilters && (
-                <Paper className="stats-filters" elevation={0}>
-                    <Box className="stats-filters-header">
-                        <Typography variant="h6" fontWeight={600}>
-                            Filter Options
+            {/* Filter Controls */}
+            <Box sx={{ mb: 3 }}>
+                <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap', mb: 2 }}>
+                    <Box
+                        onClick={() => setShowFilters(!showFilters)}
+                        sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 1,
+                            px: 2,
+                            py: 1,
+                            borderRadius: 1,
+                            backgroundColor: 'primary.main',
+                            color: 'white',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            '&:hover': {
+                                backgroundColor: 'primary.dark',
+                                transform: 'translateY(-2px)',
+                                boxShadow: 2,
+                            },
+                        }}
+                    >
+                        <span style={{ fontSize: '1.2rem' }}>⚙️</span>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                            Filters
                         </Typography>
                         {activeFilterCount > 0 && (
                             <Chip
-                                label="Clear All"
-                                onClick={clearFilters}
-                                onDelete={clearFilters}
-                                color="error"
+                                label={activeFilterCount}
                                 size="small"
+                                sx={{
+                                    height: 20,
+                                    fontSize: '0.75rem',
+                                    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+                                    color: 'white',
+                                    fontWeight: 'bold'
+                                }}
                             />
                         )}
                     </Box>
-                    
-                    <Grid container spacing={3}>
-                        {/* Cohort Filter */}
-                        <Grid item xs={12} md={6}>
-                            <Typography className="filter-group-label">
-                                📚 Cohorts
-                            </Typography>
-                            <Box className="filter-options">
-                                {availableCohorts.sort().map(cohort => (
-                                    <Chip
-                                        key={cohort}
-                                        label={cohort}
-                                        onClick={() => toggleCohort(cohort)}
-                                        color={selectedCohorts.includes(cohort) ? "primary" : "default"}
-                                        variant={selectedCohorts.includes(cohort) ? "filled" : "outlined"}
-                                        className="filter-chip"
-                                    />
-                                ))}
-                            </Box>
-                        </Grid>
 
-                        {/* District Filter */}
-                        <Grid item xs={12} md={6}>
-                            <Typography className="filter-group-label">
-                                📍 Districts
-                            </Typography>
-                            <Box className="filter-options">
-                                {uniqueDistricts.map(district => (
-                                    <Chip
-                                        key={district}
-                                        label={district}
-                                        onClick={() => toggleDistrict(district)}
-                                        color={selectedDistricts.includes(district) ? "secondary" : "default"}
-                                        variant={selectedDistricts.includes(district) ? "filled" : "outlined"}
-                                        className="filter-chip"
-                                    />
-                                ))}
-                            </Box>
+                    {activeFilterCount > 0 && (
+                        <Chip
+                            label="Clear All"
+                            onDelete={clearAllFilters}
+                            color="error"
+                            variant="outlined"
+                            sx={{
+                                cursor: 'pointer',
+                                '&:hover': { backgroundColor: 'error.light', color: 'white' }
+                            }}
+                        />
+                    )}
+                </Box>
+
+                {/* Active Filters Display */}
+                {activeFilters.length > 0 && (
+                    <Box sx={{ mb: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                        {activeFilters.map(({ type, value }, index) => (
+                            <Chip
+                                key={`${type}-${value}-${index}`}
+                                label={`${getFilterLabel(type)}: ${value}`}
+                                onDelete={() => removeFilter(type, value)}
+                                color="primary"
+                                variant="filled"
+                                size="small"
+                                sx={{
+                                    fontSize: '0.813rem',
+                                    '& .MuiChip-deleteIcon': {
+                                        fontSize: '1rem',
+                                    }
+                                }}
+                            />
+                        ))}
+                    </Box>
+                )}
+
+                {/* Filter Panel */}
+                <Collapse in={showFilters}>
+                    <Paper
+                        elevation={3}
+                        sx={{
+                            mt: 2,
+                            p: { xs: 2, sm: 3 },
+                            borderRadius: 2,
+                            backgroundColor: 'background.paper'
+                        }}
+                    >
+                        <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', mb: 2, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
+                            Filter Options
+                        </Typography>
+
+                        <Grid container spacing={2}>
+                            {['cohorts', 'programs', 'colleges', 'years', 'districts'].map(type => (
+                                <Grid item xs={12} sm={6} md={4} key={type}>
+                                    <Paper
+                                        elevation={1}
+                                        sx={{
+                                            border: '1px solid',
+                                            borderColor: 'divider',
+                                            borderRadius: 1,
+                                            overflow: 'hidden',
+                                            transition: 'all 0.2s',
+                                            '&:hover': {
+                                                boxShadow: 2,
+                                            }
+                                        }}
+                                    >
+                                        {/* Filter Header (Dropdown Toggle) */}
+                                        <Box
+                                            onClick={() => toggleFilterExpanded(type)}
+                                            sx={{
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'center',
+                                                p: 1.5,
+                                                cursor: 'pointer',
+                                                backgroundColor: expandedFilters[type] ? 'primary.light' : 'background.default',
+                                                transition: 'background-color 0.2s',
+                                                '&:hover': {
+                                                    backgroundColor: expandedFilters[type] ? 'primary.main' : 'action.hover',
+                                                },
+                                            }}
+                                        >
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                <span style={{ fontSize: '1.2rem' }}>{getFilterIcon(type)}</span>
+                                                <Typography
+                                                    variant="subtitle2"
+                                                    sx={{
+                                                        fontWeight: 600,
+                                                        color: expandedFilters[type] ? 'primary.contrastText' : 'text.primary',
+                                                        fontSize: { xs: '0.875rem', sm: '0.938rem' }
+                                                    }}
+                                                >
+                                                    {getFilterLabel(type)}s
+                                                    {filters[type].length > 0 && ` (${filters[type].length})`}
+                                                </Typography>
+                                            </Box>
+                                            <Typography
+                                                sx={{
+                                                    transform: expandedFilters[type] ? 'rotate(180deg)' : 'rotate(0deg)',
+                                                    transition: 'transform 0.2s',
+                                                    color: expandedFilters[type] ? 'primary.contrastText' : 'text.secondary',
+                                                }}
+                                            >
+                                                ▼
+                                            </Typography>
+                                        </Box>
+
+                                        {/* Filter Options (Collapsible) */}
+                                        <Collapse in={expandedFilters[type]}>
+                                            <Box sx={{
+                                                p: 1.5,
+                                                maxHeight: 250,
+                                                overflowY: 'auto',
+                                                backgroundColor: 'background.paper',
+                                                '&::-webkit-scrollbar': {
+                                                    width: '8px',
+                                                },
+                                                '&::-webkit-scrollbar-track': {
+                                                    backgroundColor: 'action.hover',
+                                                },
+                                                '&::-webkit-scrollbar-thumb': {
+                                                    backgroundColor: 'primary.main',
+                                                    borderRadius: '4px',
+                                                },
+                                            }}>
+                                                {type === 'cohorts' && isLoadingCohorts ? (
+                                                    <Typography variant="body2" color="text.secondary" sx={{ p: 1 }}>
+                                                        Loading cohorts...
+                                                    </Typography>
+                                                ) : filterOptions[type].length === 0 ? (
+                                                    <Typography variant="body2" color="text.secondary" fontStyle="italic" sx={{ p: 1 }}>
+                                                        No {type} available
+                                                    </Typography>
+                                                ) : (
+                                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                                                        {filterOptions[type].map(value => (
+                                                            <Box
+                                                                key={value}
+                                                                sx={{
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    p: 0.5,
+                                                                    borderRadius: 0.5,
+                                                                    transition: 'background-color 0.15s',
+                                                                    '&:hover': {
+                                                                        backgroundColor: 'action.hover',
+                                                                    },
+                                                                    cursor: 'pointer',
+                                                                }}
+                                                                onClick={() => toggleFilter(type, value)}
+                                                            >
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={filters[type].includes(value)}
+                                                                    onChange={() => { }}
+                                                                    style={{
+                                                                        marginRight: 8,
+                                                                        cursor: 'pointer',
+                                                                        width: '16px',
+                                                                        height: '16px'
+                                                                    }}
+                                                                />
+                                                                <Typography variant="body2" sx={{ fontSize: { xs: '0.813rem', sm: '0.875rem' } }}>
+                                                                    {value}
+                                                                </Typography>
+                                                            </Box>
+                                                        ))}
+                                                    </Box>
+                                                )}
+                                            </Box>
+                                        </Collapse>
+                                    </Paper>
+                                </Grid>
+                            ))}
                         </Grid>
-                    </Grid>
-                </Paper>
-            )}
+                    </Paper>
+                </Collapse>
+
+                {/* Records Count */}
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 2, fontSize: { xs: '0.813rem', sm: '0.875rem' } }}>
+                    Showing: <strong>{filteredStudents.length}</strong> of {students.length} students
+                    {activeFilterCount > 0 && ` • ${activeFilterCount} filter${activeFilterCount > 1 ? 's' : ''} active`}
+                </Typography>
+            </Box>
 
             {/* KPI Cards */}
-            <Grid container spacing={3} className="stats-kpi-grid">
-                <KpiCard 
-                    title="Total Students" 
-                    value={stats.totalStudents}
-                    icon="👥"
-                />
-                <KpiCard 
-                    title="Active Cohorts" 
-                    value={stats.totalCohorts}
-                    icon="🎓"
-                />
-                <KpiCard 
-                    title="Districts" 
-                    value={stats.totalDistricts}
-                    icon="📍"
-                />
-                <KpiCard 
-                    title="Colleges" 
-                    value={stats.totalColleges}
-                    icon="🏫"
-                />
+            <Grid container spacing={{ xs: 2, sm: 3 }} sx={{ mb: { xs: 3, sm: 4 } }}>
+                <Grid item xs={6} sm={6} md={3}>
+                    <KpiCard title="Total Students" value={stats.totalStudents} icon="👥" />
+                </Grid>
+                <Grid item xs={6} sm={6} md={3}>
+                    <KpiCard title="Cohorts" value={stats.totalCohorts} icon="📚" />
+                </Grid>
+                <Grid item xs={6} sm={6} md={3}>
+                    <KpiCard title="Districts" value={stats.totalDistricts} icon="📍" />
+                </Grid>
+                <Grid item xs={6} sm={6} md={3}>
+                    <KpiCard title="Colleges" value={stats.totalColleges} icon="🏫" />
+                </Grid>
             </Grid>
 
             {/* Charts Grid */}
-            <Grid container spacing={3} className="stats-charts-grid">
+            <Grid container spacing={{ xs: 2, sm: 3 }}>
                 {/* 1. District-wise Count (Bar Chart) */}
-                <ChartCard title="District-wise Distribution" subtitle="Student count by district">
-                    <BarChart
-                        height={340}
-                        xAxis={[{ 
-                            scaleType: "band", 
-                            data: districtBar.labels,
-                            tickLabelStyle: { angle: -45, textAnchor: 'end', fontSize: 11 }
-                        }]}
-                        series={[{ 
-                            data: districtBar.values,
-                            color: '#3b82f6',
-                            label: 'Students'
-                        }]}
-                        margin={{ bottom: 80, left: 50, right: 20, top: 20 }}
-                    />
-                </ChartCard>
+                <Grid item xs={12} lg={6}>
+                    <ChartCard title="District-wise Distribution" subtitle="Student count by district">
+                        {districtBar.labels.length > 0 ? (
+                            <Box sx={{ width: '100%', overflowX: 'auto' }}>
+                                <BarChart
+                                    xAxis={[{ scaleType: 'band', data: districtBar.labels }]}
+                                    series={[{ data: districtBar.values, label: 'Students' }]}
+                                    height={300}
+                                    margin={{ left: 50, right: 20, top: 20, bottom: 60 }}
+                                />
+                            </Box>
+                        ) : (
+                            <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
+                                No data available
+                            </Typography>
+                        )}
+                    </ChartCard>
+                </Grid>
 
                 {/* 2. College-wise Count (Bar Chart) */}
-                <ChartCard title="College-wise Distribution" subtitle="Student count by college">
-                    <BarChart
-                        height={340}
-                        xAxis={[{ 
-                            scaleType: "band", 
-                            data: collegeBar.labels,
-                            tickLabelStyle: { angle: -45, textAnchor: 'end', fontSize: 10 }
-                        }]}
-                        series={[{ 
-                            data: collegeBar.values,
-                            color: '#8b5cf6',
-                            label: 'Students'
-                        }]}
-                        margin={{ bottom: 100, left: 50, right: 20, top: 20 }}
-                    />
-                </ChartCard>
+                <Grid item xs={12} lg={6}>
+                    <ChartCard title="College-wise Distribution" subtitle="Student count by college">
+                        {collegeBar.labels.length > 0 ? (
+                            <Box sx={{ width: '100%', overflowX: 'auto' }}>
+                                <BarChart
+                                    xAxis={[{ scaleType: 'band', data: collegeBar.labels }]}
+                                    series={[{ data: collegeBar.values, label: 'Students' }]}
+                                    height={300}
+                                    margin={{ left: 50, right: 20, top: 20, bottom: 60 }}
+                                />
+                            </Box>
+                        ) : (
+                            <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
+                                No data available
+                            </Typography>
+                        )}
+                    </ChartCard>
+                </Grid>
 
                 {/* 3. Course-wise Count (Pie Chart) */}
-                <ChartCard title="Course-wise Distribution" subtitle="Student count by program">
-                    <PieChart
-                        height={340}
-                        series={[
-                            {
-                                data: programPie,
-                                innerRadius: 60,
-                                outerRadius: 110,
-                                paddingAngle: 2,
-                                cornerRadius: 5,
-                                highlightScope: { faded: 'global', highlighted: 'item' }
-                            }
-                        ]}
-                        slotProps={{
-                            legend: {
-                                direction: 'column',
-                                position: { vertical: 'middle', horizontal: 'right' },
-                                padding: 0,
-                            }
-                        }}
-                    />
-                </ChartCard>
+                <Grid item xs={12} md={6} lg={6}>
+                    <ChartCard title="Program Distribution" subtitle="Students by program">
+                        {programPie.length > 0 ? (
+                            <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+                                <PieChart
+                                    series={[{ data: programPie }]}
+                                    height={300}
+                                    margin={{ top: 20, bottom: 20, left: 20, right: 20 }}
+                                />
+                            </Box>
+                        ) : (
+                            <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
+                                No data available
+                            </Typography>
+                        )}
+                    </ChartCard>
+                </Grid>
 
                 {/* 4. Cohort + Course Combined (Bar Chart) */}
-                <ChartCard title="Cohort-Course Distribution" subtitle="Student count by cohort and course">
-                    <BarChart
-                        height={340}
-                        xAxis={[{ 
-                            scaleType: "band", 
-                            data: cohortCourseBar.labels,
-                            tickLabelStyle: { angle: -45, textAnchor: 'end', fontSize: 9 }
-                        }]}
-                        series={[{ 
-                            data: cohortCourseBar.values,
-                            color: '#f59e0b',
-                            label: 'Students'
-                        }]}
-                        margin={{ bottom: 120, left: 50, right: 20, top: 20 }}
-                    />
-                </ChartCard>
+                <Grid item xs={12} md={6} lg={6}>
+                    <ChartCard title="Cohort-Program Distribution" subtitle="Students by cohort and program">
+                        {cohortCourseBar.labels.length > 0 ? (
+                            <Box sx={{ width: '100%', overflowX: 'auto' }}>
+                                <BarChart
+                                    xAxis={[{ scaleType: 'band', data: cohortCourseBar.labels }]}
+                                    series={[{ data: cohortCourseBar.values, label: 'Students' }]}
+                                    height={300}
+                                    margin={{ left: 50, right: 20, top: 20, bottom: 60 }}
+                                />
+                            </Box>
+                        ) : (
+                            <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
+                                No data available
+                            </Typography>
+                        )}
+                    </ChartCard>
+                </Grid>
 
                 {/* 5. Cohort Distribution (Pie Chart) */}
-                <ChartCard title="Cohort Distribution" subtitle="Student count by cohort">
-                    <PieChart
-                        height={340}
-                        series={[
-                            {
-                                data: cohortPie,
-                                innerRadius: 60,
-                                outerRadius: 110,
-                                paddingAngle: 2,
-                                cornerRadius: 5,
-                                highlightScope: { faded: 'global', highlighted: 'item' }
-                            }
-                        ]}
-                        slotProps={{
-                            legend: {
-                                direction: 'column',
-                                position: { vertical: 'middle', horizontal: 'right' },
-                                padding: 0,
-                            }
-                        }}
-                    />
-                </ChartCard>
+                <Grid item xs={12} md={6} lg={6}>
+                    <ChartCard title="Cohort Distribution" subtitle="Students by cohort">
+                        {cohortPie.length > 0 ? (
+                            <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+                                <PieChart
+                                    series={[{ data: cohortPie }]}
+                                    height={300}
+                                    margin={{ top: 20, bottom: 20, left: 20, right: 20 }}
+                                />
+                            </Box>
+                        ) : (
+                            <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
+                                No data available
+                            </Typography>
+                        )}
+                    </ChartCard>
+                </Grid>
 
                 {/* 6. Year-wise Distribution (Bar Chart) */}
-                <ChartCard title="Year-wise Distribution" subtitle="Student count by current academic year">
-                    <BarChart
-                        height={340}
-                        xAxis={[{ 
-                            scaleType: "band", 
-                            data: yearBar.labels
-                        }]}
-                        series={[{ 
-                            data: yearBar.values,
-                            color: '#10b981',
-                            label: 'Students'
-                        }]}
-                        margin={{ bottom: 60, left: 50, right: 20, top: 20 }}
-                    />
-                </ChartCard>
+                <Grid item xs={12} md={6} lg={6}>
+                    <ChartCard title="Year-wise Distribution" subtitle="Students by current year">
+                        {yearBar.labels.length > 0 ? (
+                            <Box sx={{ width: '100%', overflowX: 'auto' }}>
+                                <BarChart
+                                    xAxis={[{ scaleType: 'band', data: yearBar.labels }]}
+                                    series={[{ data: yearBar.values, label: 'Students' }]}
+                                    height={300}
+                                    margin={{ left: 50, right: 20, top: 20, bottom: 60 }}
+                                />
+                            </Box>
+                        ) : (
+                            <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
+                                No data available
+                            </Typography>
+                        )}
+                    </ChartCard>
+                </Grid>
             </Grid>
         </Box>
     );
 }
 
-/* =====================
-   Supporting Components
-   ===================== */
-
+/* ===================== Supporting Components ===================== */
 function KpiCard({ title, value, icon }) {
     return (
-        <Grid item xs={12} sm={6} md={3}>
-            <Card className="kpi-card" elevation={0}>
-                <CardContent sx={{ p: 3 }}>
-                    <Box display="flex" justifyContent="space-between" alignItems="center">
-                        <Box>
-                            <Typography className="kpi-label">
-                                {title}
-                            </Typography>
-                            <Typography className="kpi-value">
-                                {value}
-                            </Typography>
-                        </Box>
-                        <Box className="kpi-icon">
-                            {icon}
-                        </Box>
-                    </Box>
-                </CardContent>
-            </Card>
-        </Grid>
+        <Card
+            elevation={2}
+            sx={{
+                height: '100%',
+                transition: 'all 0.2s',
+                '&:hover': {
+                    transform: 'translateY(-4px)',
+                    boxShadow: 4,
+                }
+            }}
+        >
+            <CardContent sx={{ p: { xs: 2, sm: 2.5 } }}>
+                <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    gutterBottom
+                    sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+                >
+                    {title}
+                </Typography>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography
+                        variant="h4"
+                        component="div"
+                        sx={{
+                            fontSize: { xs: '1.75rem', sm: '2.125rem' },
+                            fontWeight: 'bold',
+                            color: 'primary.main'
+                        }}
+                    >
+                        {value}
+                    </Typography>
+                    <Typography
+                        variant="h4"
+                        component="span"
+                        sx={{ fontSize: { xs: '1.75rem', sm: '2.125rem' } }}
+                    >
+                        {icon}
+                    </Typography>
+                </Box>
+            </CardContent>
+        </Card>
     );
 }
 
 function ChartCard({ title, subtitle, children }) {
     return (
-        <Grid item xs={12} md={6}>
-            <Card className="chart-card" elevation={0}>
-                <CardContent sx={{ p: 3 }}>
-                    <Typography variant="h6" className="chart-title">
-                        {title}
+        <Card
+            elevation={2}
+            sx={{
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                transition: 'all 0.2s',
+                '&:hover': {
+                    boxShadow: 4,
+                }
+            }}
+        >
+            <CardContent sx={{ p: { xs: 2, sm: 2.5 }, flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+                <Typography
+                    variant="h6"
+                    gutterBottom
+                    sx={{ fontSize: { xs: '1rem', sm: '1.25rem' }, fontWeight: 600 }}
+                >
+                    {title}
+                </Typography>
+                {subtitle && (
+                    <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        gutterBottom
+                        sx={{ mb: 2, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+                    >
+                        {subtitle}
                     </Typography>
-                    {subtitle && (
-                        <Typography variant="body2" className="chart-subtitle">
-                            {subtitle}
-                        </Typography>
-                    )}
+                )}
+                <Box sx={{ flexGrow: 1, minHeight: 0 }}>
                     {children}
-                </CardContent>
-            </Card>
-        </Grid>
+                </Box>
+            </CardContent>
+        </Card>
     );
 }
