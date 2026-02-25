@@ -23,6 +23,10 @@ const api = {
     // Import
     getPath: () => ipcRenderer.invoke('excel:getPath'),
     importFile: (data) => ipcRenderer.invoke('excel:importFile', data),
+    
+    // Export & Backup
+    exportFile: () => ipcRenderer.invoke('excel:exportFile'),
+    backupToSupabase: () => ipcRenderer.invoke('excel:backupToSupabase'),
 
     // Cohort management
     getCohorts: () => ipcRenderer.invoke('excel:getCohorts'),

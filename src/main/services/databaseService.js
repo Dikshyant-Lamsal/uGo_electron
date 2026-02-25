@@ -1,6 +1,6 @@
 /* eslint-disable prettier/prettier */
 // Database Service - PostgreSQL with separate cohort tables
-import { ipcMain, dialog, app } from 'electron';
+import { ipcMain, dialog, app, shell } from 'electron';
 import pkg from 'pg';
 import path from 'path';
 const { Pool } = pkg;
@@ -1124,6 +1124,143 @@ ipcMain.handle('excel:importFile', async (event, { filePath, sourceSheet }) => {
     };
   } finally {
     client.release();
+  }
+});
+
+// ============================================
+// EXPORT & BACKUP HANDLERS
+// ============================================
+
+/**
+ * Export all students from PostgreSQL to a user-chosen Excel file
+ * Sheets: Master_Database + one sheet per cohort + Participations
+ */
+ipcMain.handle('excel:exportFile', async () => {
+  try {
+    const { filePath, canceled } = await dialog.showSaveDialog({
+      title: 'Export Student Data',
+      defaultPath: `UGO_Backup_${new Date().toISOString().slice(0, 10)}.xlsx`,
+      filters: [{ name: 'Excel Files', extensions: ['xlsx'] }]
+    });
+
+    if (canceled || !filePath) {
+      return { success: false, canceled: true };
+    }
+
+    console.log('📤 Exporting to:', filePath);
+
+    // Fetch all students from master_database
+    const studentsResult = await pool.query('SELECT * FROM master_database ORDER BY id ASC');
+    const allStudents = studentsResult.rows.map(rowToStudent);
+
+    // Fetch all participations
+    const participationsResult = await pool.query('SELECT * FROM participations ORDER BY event_date DESC');
+    const allParticipations = participationsResult.rows;
+
+    // Fetch all cohort names
+    const cohortsResult = await pool.query(`
+      SELECT DISTINCT cohort FROM master_database
+      WHERE cohort IS NOT NULL AND cohort != ''
+      ORDER BY cohort
+    `);
+    const cohorts = cohortsResult.rows.map(r => r.cohort);
+
+    // Build workbook
+    const workbook = XLSX.utils.book_new();
+
+    // Sheet 1: Master_Database (all students)
+    const masterSheet = XLSX.utils.json_to_sheet(allStudents);
+    XLSX.utils.book_append_sheet(workbook, masterSheet, 'Master_Database');
+
+    // One sheet per cohort
+    for (const cohort of cohorts) {
+      const cohortStudents = allStudents.filter(s => s.Cohort === cohort);
+      const cohortSheet = XLSX.utils.json_to_sheet(cohortStudents);
+      XLSX.utils.book_append_sheet(workbook, cohortSheet, cohort);
+    }
+
+    // Sheet: Participations
+    if (allParticipations.length > 0) {
+      const participationsSheet = XLSX.utils.json_to_sheet(allParticipations);
+      XLSX.utils.book_append_sheet(workbook, participationsSheet, 'Participations');
+    }
+
+    // Write file
+    XLSX.writeFile(workbook, filePath);
+
+    console.log(`✅ Exported ${allStudents.length} students to: ${filePath}`);
+
+    // Open the folder containing the file
+    shell.showItemInFolder(filePath);
+
+    return {
+      success: true,
+      filePath,
+      message: `Exported ${allStudents.length} students successfully`
+    };
+  } catch (err) {
+    console.error('❌ Export failed:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+/**
+ * Backup: re-upserts all master_database records back into Supabase
+ * Safe to run repeatedly — uses ON CONFLICT DO UPDATE on student_id
+ */
+ipcMain.handle('excel:backupToSupabase', async () => {
+  try {
+    console.log('☁️  Starting Supabase backup...');
+
+    // Fetch all students from local pool
+    const studentsResult = await pool.query('SELECT * FROM master_database ORDER BY id ASC');
+    const allRows = studentsResult.rows;
+
+    if (allRows.length === 0) {
+      return { success: false, error: 'No students found to back up' };
+    }
+
+    const BATCH_SIZE = 50;
+    let upserted = 0;
+
+    for (let i = 0; i < allRows.length; i += BATCH_SIZE) {
+      const batch = allRows.slice(i, i + BATCH_SIZE);
+
+      // Build multi-row upsert — conflict on student_id
+      const columns = Object.keys(batch[0]).filter(col => col !== 'id'); // exclude auto-increment id
+      const placeholders = batch.map((_, rowIdx) =>
+        `(${columns.map((_, colIdx) => `$${rowIdx * columns.length + colIdx + 1}`).join(', ')})`
+      ).join(', ');
+
+      const values = batch.flatMap(row => columns.map(col => row[col] ?? null));
+
+      const updateSet = columns
+        .filter(col => col !== 'student_id')
+        .map(col => `"${col}" = EXCLUDED."${col}"`)
+        .join(', ');
+
+      const columnList = columns.map(col => `"${col}"`).join(', ');
+
+      await pool.query(`
+        INSERT INTO master_database (${columnList})
+        VALUES ${placeholders}
+        ON CONFLICT (student_id) DO UPDATE SET ${updateSet}
+      `, values);
+
+      upserted += batch.length;
+      console.log(`   ☁️  Upserted ${upserted}/${allRows.length} students...`);
+    }
+
+    console.log(`✅ Supabase backup complete: ${upserted} students upserted`);
+
+    return {
+      success: true,
+      upserted,
+      message: `Backed up ${upserted} students to Supabase successfully`
+    };
+  } catch (err) {
+    console.error('❌ Supabase backup failed:', err);
+    return { success: false, error: err.message };
   }
 });
 

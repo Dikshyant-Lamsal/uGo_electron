@@ -901,6 +901,112 @@ ipcMain.handle('excel:importFile', async (event, { filePath, sourceSheet }) => {
     }
 });
 
+// ============================================
+// EXPORT & BACKUP HANDLERS
+// ============================================
+
+/**
+ * Export all student data to a user-chosen Excel file
+ * Includes all sheets: Master_Database + all cohort sheets + Participations
+ */
+ipcMain.handle('excel:exportFile', async () => {
+  try {
+    const { filePath, canceled } = await dialog.showSaveDialog({
+      title: 'Export Student Data',
+      defaultPath: `UGO_Backup_${new Date().toISOString().slice(0, 10)}.xlsx`,
+      filters: [{ name: 'Excel Files', extensions: ['xlsx'] }]
+    });
+
+    if (canceled || !filePath) {
+      restoreFocus();
+      return { success: false, canceled: true };
+    }
+
+    // Read the full source workbook and write it as-is to the chosen path
+    const workbook = XLSX.readFile(excelPath);
+    XLSX.writeFile(workbook, filePath);
+
+    console.log(`✅ Exported full workbook to: ${filePath}`);
+    restoreFocus();
+
+    // Optionally open the folder containing the exported file
+    shell.showItemInFolder(filePath);
+
+    return {
+      success: true,
+      filePath,
+      message: `Exported successfully to ${path.basename(filePath)}`
+    };
+  } catch (err) {
+    console.error('Error exporting file:', err);
+    restoreFocus();
+    return { success: false, error: err.message };
+  }
+});
+
+/**
+ * Backup all students to Supabase (upsert by Student_ID)
+ * Requires DATABASE_URL in .env — uses the existing db pool from database-service
+ * Call this handler after excel:exportFile or on a schedule
+ */
+ipcMain.handle('excel:backupToSupabase', async () => {
+  try {
+    console.log('☁️  Starting Supabase backup...');
+
+    // Dynamically import the db pool so this file stays decoupled
+    // Adjust the import path to wherever your db pool is exported from
+    const { pool } = await import('./database-service.js');
+
+    const students = getAllStudents();
+
+    if (!students || students.length === 0) {
+      return { success: false, error: 'No students to back up' };
+    }
+
+    const BATCH_SIZE = 50; // Supabase handles ~50 rows comfortably per query
+    let upserted = 0;
+
+    for (let i = 0; i < students.length; i += BATCH_SIZE) {
+      const batch = students.slice(i, i + BATCH_SIZE);
+
+      // Build a multi-row upsert using ON CONFLICT (Student_ID) DO UPDATE
+      const columns = Object.keys(batch[0]);
+      const placeholders = batch.map((_, rowIdx) =>
+        `(${columns.map((_, colIdx) => `$${rowIdx * columns.length + colIdx + 1}`).join(', ')})`
+      ).join(', ');
+
+      const values = batch.flatMap(row => columns.map(col => row[col] ?? null));
+
+      const updateSet = columns
+        .filter(col => col !== 'Student_ID') // don't overwrite the conflict key
+        .map(col => `"${col}" = EXCLUDED."${col}"`)
+        .join(', ');
+
+      const columnList = columns.map(col => `"${col}"`).join(', ');
+
+      const query = `
+        INSERT INTO students (${columnList})
+        VALUES ${placeholders}
+        ON CONFLICT ("Student_ID") DO UPDATE SET ${updateSet}
+      `;
+
+      await pool.query(query, values);
+      upserted += batch.length;
+      console.log(`   ☁️  Upserted ${upserted}/${students.length} students...`);
+    }
+
+    console.log(`✅ Supabase backup complete: ${upserted} students upserted`);
+
+    return {
+      success: true,
+      upserted,
+      message: `Backed up ${upserted} students to Supabase successfully`
+    };
+  } catch (err) {
+    console.error('❌ Supabase backup failed:', err);
+    return { success: false, error: err.message };
+  }
+});
 
 ipcMain.handle('excel:getPath', async () => {
     const result = await dialog.showOpenDialog({

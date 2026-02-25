@@ -140,27 +140,26 @@ class StudentAPI {
     }
 
     /**
-         * Save student photo
-         * @param {string} studentId - Student_ID (e.g., "UGO_C1_257")
-         * @param {File} file - Photo file
-         * @returns {Promise<{success: boolean, message: string}>}
-         */
+     * Save student photo
+     * @param {string} studentId - Student_ID (e.g., "UGO_C1_257")
+     * @param {File} file - Photo file
+     * @returns {Promise<{success: boolean, message: string}>}
+     */
     async savePhoto(studentId, file) {
         try {
             console.log('💾 Saving photo for student:', studentId);
 
-            // Read file as base64
             const reader = new FileReader();
 
             return new Promise((resolve, reject) => {
                 reader.onload = async () => {
-                    const base64Data = reader.result.split(',')[1]; // Remove data:image/jpeg;base64,
+                    const base64Data = reader.result.split(',')[1];
                     const extension = file.name.split('.').pop().toLowerCase();
 
                     console.log('📤 Uploading to API...', { studentId, extension, size: base64Data.length });
 
                     const result = await globalThis.api.photos.savePhoto({
-                        id: studentId, // ✅ Pass Student_ID
+                        id: studentId,
                         photoData: base64Data,
                         extension
                     });
@@ -321,11 +320,12 @@ class StudentAPI {
             return { success: false, error: error.message };
         }
     }
+
     /**
- * Import students from Excel file
- * @param {string} filePath - Path to Excel file
- * @param {string} sourceSheet - Source cohort name
- */
+     * Import students from Excel file
+     * @param {string} filePath - Path to Excel file
+     * @param {string} sourceSheet - Source cohort name
+     */
     async importFile(filePath, sourceSheet) {
         try {
             const result = await window.api.excel.importFile({ filePath, sourceSheet });
@@ -334,6 +334,55 @@ class StudentAPI {
             console.error('Error importing file:', error);
             return { success: false, error: error.message };
         }
+    }
+
+    // ============================================
+    // EXPORT & BACKUP OPERATIONS
+    // ============================================
+
+    /**
+     * Export full workbook to a user-chosen location on disk
+     * Opens a Save dialog and copies all sheets (Master_Database, cohorts, Participations)
+     * @returns {Promise<{success: boolean, filePath?: string, canceled?: boolean, error?: string}>}
+     */
+    async exportFile() {
+        try {
+            const result = await window.api.excel.exportFile();
+            return result;
+        } catch (error) {
+            console.error('Error exporting file:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Backup all students to Supabase via upsert (safe to run repeatedly)
+     * @returns {Promise<{success: boolean, upserted?: number, message?: string, error?: string}>}
+     */
+    async backupToSupabase() {
+        try {
+            const result = await window.api.excel.backupToSupabase();
+            return result;
+        } catch (error) {
+            console.error('Error backing up to Supabase:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Run export + Supabase backup in one call
+     * @returns {Promise<{export: Object, backup: Object}>}
+     */
+    async exportAndBackup() {
+        const [exportResult, backupResult] = await Promise.allSettled([
+            this.exportFile(),
+            this.backupToSupabase()
+        ]);
+
+        return {
+            export: exportResult.status === 'fulfilled' ? exportResult.value : { success: false, error: exportResult.reason },
+            backup: backupResult.status === 'fulfilled' ? backupResult.value : { success: false, error: backupResult.reason }
+        };
     }
 
     // ============================================
@@ -357,9 +406,9 @@ class StudentAPI {
     }
 
     /**
- * Get list of available cohorts
- * @returns {Promise<{success: boolean, cohorts: Array}>}
- */
+     * Get list of available cohorts
+     * @returns {Promise<{success: boolean, cohorts: Array}>}
+     */
     async getCohorts() {
         try {
             const result = await window.api.excel.getCohorts();
@@ -386,8 +435,8 @@ class StudentAPI {
     }
 
     /**
- * Run Python consolidator script
- */
+     * Run Python consolidator script
+     */
     async runConsolidator() {
         try {
             const result = await window.api.excel.runConsolidator();
@@ -398,7 +447,6 @@ class StudentAPI {
         }
     }
 }
-
 
 // Export singleton instance
 export default new StudentAPI();
