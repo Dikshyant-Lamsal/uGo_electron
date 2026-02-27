@@ -56,6 +56,7 @@ pool.query('SELECT NOW()', (err, res) => {
 /**
  * Convert database row (snake_case) to frontend format (Pascal_Case)
  */
+
 function rowToStudent(row) {
   return {
     id: row.id,
@@ -314,6 +315,20 @@ async function getNextStudentSerial(client) {
   return nextSerial;
 }
 
+// In your database-service file, add a participation sequence sync helper:
+async function syncParticipationSequence(client) {
+  try {
+    await client.query(`
+      SELECT setval(
+        pg_get_serial_sequence('participations', 'participation_id'),
+        COALESCE((SELECT MAX(participation_id) FROM participations), 0) + 1,
+        false
+      )
+    `);
+  } catch (err) {
+    console.error('⚠️ Failed to sync participation sequence:', err.message);
+  }
+}
 // ============================================
 // IPC HANDLERS - STUDENTS
 // ============================================
@@ -839,24 +854,29 @@ ipcMain.handle('excel:getParticipations', async (event, studentId) => {
       participation_id: row.participation_id,
       student_id: row.student_id,
       event_name: row.event_name,
-      event_date: row.event_date,
+      event_date: row.event_date ? new Date(row.event_date).toISOString().split('T')[0] : null, // "2024-01-15"
       event_type: row.event_type,
       role: row.role,
-      hours: row.hours,
-      notes: row.notes,
-      created_at: row.created_at,
-      updated_at: row.updated_at
+      hours: row.hours ? parseFloat(row.hours) : 0,
+      notes: row.notes || '',
+      created_at: row.created_at ? row.created_at.toISOString() : null,
+      updated_at: row.updated_at ? row.updated_at.toISOString() : null,
     }));
 
     return { success: true, data: participations };
   } catch (err) {
+    console.error('Error getting participations:', err);
     return { success: false, error: err.message, data: [] };
   }
 });
 
 ipcMain.handle('excel:addParticipation', async (event, participationData) => {
+  const client = await pool.connect();  // use a client for the transaction
   try {
-    const result = await pool.query(`
+    await client.query('BEGIN');
+    await syncParticipationSequence(client);  // ← add this
+
+    const result = await client.query(`
       INSERT INTO participations (
         student_id, event_name, event_date, event_type, role, hours, notes
       ) VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -871,13 +891,13 @@ ipcMain.handle('excel:addParticipation', async (event, participationData) => {
       participationData.notes || ''
     ]);
 
-    return {
-      success: true,
-      data: result.rows[0],
-      message: 'Participation added successfully'
-    };
+    await client.query('COMMIT');
+    return { success: true, data: result.rows[0], message: 'Participation added successfully' };
   } catch (err) {
+    await client.query('ROLLBACK');
     return { success: false, error: err.message };
+  } finally {
+    client.release();
   }
 });
 
@@ -925,12 +945,27 @@ ipcMain.handle('excel:deleteParticipation', async (event, id) => {
 ipcMain.handle('excel:getAllParticipations', async (event, params = {}) => {
   try {
     const result = await pool.query('SELECT * FROM participations ORDER BY event_date DESC');
+
+    const participations = result.rows.map(row => ({
+      participation_id: row.participation_id,
+      student_id: row.student_id,
+      event_name: row.event_name,
+      event_date: row.event_date ? new Date(row.event_date).toISOString().split('T')[0] : null,
+      event_type: row.event_type,
+      role: row.role,
+      hours: row.hours ? parseFloat(row.hours) : 0,
+      notes: row.notes || '',
+      created_at: row.created_at ? row.created_at.toISOString() : null,
+      updated_at: row.updated_at ? row.updated_at.toISOString() : null,
+    }));
+
     return {
       success: true,
-      data: result.rows,
-      pagination: { page: 1, limit: 1000, total: result.rows.length, totalPages: 1 }
+      data: participations,
+      pagination: { page: 1, limit: 1000, total: participations.length, totalPages: 1 }
     };
   } catch (err) {
+    console.error('Error getting all participations:', err);
     return { success: false, error: err.message };
   }
 });

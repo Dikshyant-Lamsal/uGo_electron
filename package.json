@@ -1,6 +1,6 @@
 {
   "name": "ugo-scholarship-manager",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "An Electron application with React",
   "main": "./out/main/index.js",
   "author": "dikshyant-lamsal",
@@ -15,7 +15,9 @@
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run build && electron-builder --win --x64",
     "build:mac": "npm run build && electron-builder --mac",
-    "build:linux": "npm run build && electron-builder --linux"
+    "build:linux": "npm run build && electron-builder --linux",
+    "test": "vitest",
+    "test:run": "vitest run"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
@@ -48,7 +50,8 @@
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
     "tailwindcss": "^4.1.18",
-    "vite": "^7.2.6"
+    "vite": "^7.2.6",
+    "vitest": "^3.2.4"
   },
   "build": {
     "appId": "com.ugo.scholarship",
@@ -63,6 +66,7 @@
       ".env"
     ],
     "win": {
+      "icon": "build/icon.ico",
       "target": [
         {
           "target": "nsis",
